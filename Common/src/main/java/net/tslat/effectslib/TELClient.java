@@ -45,6 +45,12 @@ public final class TELClient {
         if (PARTICLE_TRANSITION_HANDLERS.isEmpty())
             return;
 
+        if (Minecraft.getInstance().level == null) {
+            PARTICLE_TRANSITION_HANDLERS.clear();
+
+            return;
+        }
+
         for (int i = PARTICLE_TRANSITION_HANDLERS.size(); i > 0; i--) {
             Runnable runnable = PARTICLE_TRANSITION_HANDLERS.poll();
 
