@@ -1,5 +1,6 @@
 package net.tslat.effectslib.api.util;
 
+import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 
@@ -7,7 +8,7 @@ import net.minecraft.world.effect.MobEffectInstance;
  * Helper class to make building {@link MobEffect MobEffects} easier
  */
 public final class EffectBuilder {
-	private final MobEffect effect;
+	private final Holder<MobEffect> effect;
 	private final int duration;
 
 	private int level = 1;
@@ -15,11 +16,11 @@ public final class EffectBuilder {
 	private boolean showParticles = true;
 	private boolean showIcon = true;
 
-	public EffectBuilder(MobEffect effect) {
+	public EffectBuilder(Holder<MobEffect> effect) {
 		this(effect, -1);
 	}
 
-	public EffectBuilder(MobEffect effect, int duration) {
+	public EffectBuilder(Holder<MobEffect> effect, int duration) {
 		this.effect = effect;
 		this.duration = duration;
 	}
@@ -69,7 +70,7 @@ public final class EffectBuilder {
 	 * Get the MobEffect
 	 * @return The MobEffect
 	 */
-	public MobEffect getEffect() {
+	public Holder<MobEffect> getEffect() {
 		return this.effect;
 	}
 

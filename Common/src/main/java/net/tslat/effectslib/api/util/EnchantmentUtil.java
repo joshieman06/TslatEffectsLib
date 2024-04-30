@@ -1,14 +1,15 @@
 package net.tslat.effectslib.api.util;
 
-import it.unimi.dsi.fastutil.ints.IntObjectPair;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectIntPair;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.core.Holder;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentInstance;
-import net.tslat.effectslib.TELConstants;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.tslat.effectslib.api.ExtendedEnchantment;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,7 +27,7 @@ public final class EnchantmentUtil {
 	 * @return The total enchantment level, and full list of enchantments and the stacks they are on
 	 */
 	public static Map<Enchantment, EntityEnchantmentData> collectAllEnchantments(LivingEntity entity, boolean filterForExtendedEnchants) {
-		Map<Enchantment, EntityEnchantmentData> data = new Object2ObjectOpenHashMap<>();
+		Map<Enchantment, EntityEnchantmentData> data = new Reference2ObjectOpenHashMap<>();
 
 		for (EquipmentSlot slot : EquipmentSlot.values()) {
 			ItemStack stack = entity.getItemBySlot(slot);
@@ -34,23 +35,12 @@ public final class EnchantmentUtil {
 			if (stack.isEmpty())
 				continue;
 
-			for (EnchantmentInstance instance : getStackEnchantmentsForUse(entity, stack, slot, filterForExtendedEnchants)) {
-				data.computeIfAbsent(instance.enchantment, EntityEnchantmentData::new).accountStack(stack, instance.level);
+			for (ObjectIntPair<Holder<Enchantment>> instance : getStackEnchantmentsForUse(entity, stack, slot, filterForExtendedEnchants)) {
+				data.computeIfAbsent(instance.key().value(), EntityEnchantmentData::new).accountStack(stack, instance.valueInt());
 			}
 		}
 
 		return data;
-	}
-
-	/**
-	 * Get the raw Enchantment:Level map for the given ItemStack
-	 * <p>This allows TEL to take advantage of cached enchantments to increase performance</p>
-	 */
-	public static Map<Enchantment, Integer> getRawStackEnchantments(ItemStack stack) {
-		if (stack.isEmpty() || !stack.isEnchanted())
-			return Map.of();
-
-		return TELConstants.COMMON.getEnchantmentsFromStack(stack);
 	}
 
 	/**
@@ -60,33 +50,30 @@ public final class EnchantmentUtil {
 	 * @param slot The slot the stack is equipped in
 	 * @param filterForExtendedEnchants Whether to skip any enchantments that aren't {@link ExtendedEnchantment Extended Enchantments}
 	 */
-	public static List<EnchantmentInstance> getStackEnchantmentsForUse(LivingEntity entity, ItemStack stack, EquipmentSlot slot, boolean filterForExtendedEnchants) {
-		List<EnchantmentInstance> enchants = new ObjectArrayList<>();
+	public static <E extends Enchantment> List<ObjectIntPair<Holder<E>>> getStackEnchantmentsForUse(LivingEntity entity, ItemStack stack, EquipmentSlot slot, boolean filterForExtendedEnchants) {
+		final List<ObjectIntPair<Holder<E>>> enchants = new ObjectArrayList<>();
 
-		for (Map.Entry<Enchantment, Integer> enchantEntry : getRawStackEnchantments(stack).entrySet()) {
-			EnchantmentInstance instance = new EnchantmentInstance(enchantEntry.getKey(), enchantEntry.getValue());
-
-			if (instance.enchantment instanceof ExtendedEnchantment extendedEnchant) {
-				if (extendedEnchant.isApplicable(stack, instance.level, entity, slot))
-					enchants.add(instance);
-			}
-			else if (!filterForExtendedEnchants)
-				enchants.add(instance);
+		for (Object2IntMap.Entry<Holder<Enchantment>> entry : stack.getEnchantments().entrySet()) {
+			if (!filterForExtendedEnchants || (entry.getKey().value() instanceof ExtendedEnchantment extendedEnchant && extendedEnchant.isApplicable(stack, entry.getIntValue(), entity, slot)))
+				enchants.add(ObjectIntPair.of((Holder<E>)entry.getKey(), entry.getIntValue()));
 		}
 
 		return enchants;
 	}
 
 	/**
-	 * Get an EnchantmentInstance for the provided ItemStack, if applicable
+	 * Get an enchantment and its associated level for the provided ItemStack, if applicable
+	 *
 	 * @param stack The stack to get the enchantment from
-	 * @return The instance retrieved from the stack, or null if this enchantment is not on the provided stack
+	 * @return The enchant data retrieved from the stack, or null if this enchantment is not on the provided stack
 	 */
 	@Nullable
-	public static EnchantmentInstance getEnchantInstanceForStack(Enchantment enchant, ItemStack stack) {
-		for (Map.Entry<Enchantment, Integer> enchantEntry : getRawStackEnchantments(stack).entrySet()) {
-			if (enchantEntry.getKey() == enchant)
-				return new EnchantmentInstance(enchantEntry.getKey(), enchantEntry.getValue());
+	public static ObjectIntPair<Holder<Enchantment>> getEnchantDetailsForStack(Enchantment enchant, ItemStack stack) {
+		ItemEnchantments enchants = stack.getEnchantments();
+
+		for (Object2IntMap.Entry<Holder<Enchantment>> entry : stack.getEnchantments().entrySet()) {
+			if (entry.getKey() == enchant)
+				return ObjectIntPair.of(entry.getKey(), entry.getIntValue());
 		}
 
 		return null;
@@ -97,7 +84,7 @@ public final class EnchantmentUtil {
 	 */
 	public static class EntityEnchantmentData {
 		private final Enchantment enchant;
-		private final List<IntObjectPair<ItemStack>> stacks = new ObjectArrayList<>();
+		private final List<ObjectIntPair<ItemStack>> stacks = new ObjectArrayList<>();
 		private int totalLevel = 0;
 
 		public EntityEnchantmentData(Enchantment enchant) {
@@ -108,7 +95,7 @@ public final class EnchantmentUtil {
 			return this.enchant;
 		}
 
-		public List<IntObjectPair<ItemStack>> getEnchantedStacks() {
+		public List<ObjectIntPair<ItemStack>> getEnchantedStacks() {
 			return this.stacks;
 		}
 
@@ -120,16 +107,16 @@ public final class EnchantmentUtil {
 		 * Return what percentage (0-1 inclusive) of the totalLevel this stack represents for this enchantment
 		 */
 		public float fractionOfTotal(ItemStack stack) {
-			for (IntObjectPair<ItemStack> entry : this.stacks) {
-				if (entry.second() == stack)
-					return entry.firstInt() / (float)this.totalLevel;
+			for (ObjectIntPair<ItemStack> entry : this.stacks) {
+				if (entry.first() == stack)
+					return entry.valueInt() / (float)this.totalLevel;
 			}
 
 			return 0;
 		}
 
 		public void accountStack(ItemStack stack, int level) {
-			this.stacks.add(IntObjectPair.of(level, stack));
+			this.stacks.add(ObjectIntPair.of(stack, level));
 			this.totalLevel += level;
 		}
 	}

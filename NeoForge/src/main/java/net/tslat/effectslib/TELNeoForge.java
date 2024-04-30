@@ -19,9 +19,4 @@ public class TELNeoForge implements TELCommon {
 
         return parts[random.nextInt(parts.length)].getBoundingBox();
     }
-
-    @Override
-    public Map<Enchantment, Integer> getEnchantmentsFromStack(ItemStack stack) {
-        return TELItemStackData.getDataFor(stack).getCachedEnchantments(stack);
-    }
 }

@@ -1,10 +1,11 @@
 package net.tslat.effectslib.api;
 
+import net.minecraft.core.Holder;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.effect.AttributeModifierTemplate;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -41,21 +42,28 @@ public class ExtendedMobEffect extends MobEffect {
 	 * @return The display name component
 	 */
 	public Component getDisplayName(@Nullable MobEffectInstance instance) {
-		MutableComponent component = Component.translatable(this.getDescriptionId());
+		MutableComponent name = instance == null ? Component.translatable(getDescriptionId()) : instance.getEffect().value().getDisplayName().copy();
 
 		if (instance != null && instance.getAmplifier() > 0 && instance.getAmplifier() < 10)
-			component.append(" ").append(Component.translatable("enchantment.level." + (instance.getAmplifier() + 1)));
+			name.append(CommonComponents.SPACE).append(Component.translatable("enchantment.level." + (instance.getAmplifier() + 1)));
 
-		return component;
+		return name;
 	}
 
 	/**
-	 * Tick method, called once per tick while the entity has this effect active. <br>
+	 * Tick method, called once per tick while the entity has this effect active
+	 * <p>
+	 * Returns to determine whether the entity ticking the effect should have it removed early (prior to natural expiry)
+	 * Return false to have the effect removed prematurely
+	 *
 	 * @param entity The entity the effect is ticking on
 	 * @param effectInstance Effect instance for the effect. Marked with nullable so that the vanilla methods can be routed through for completeness
 	 * @param amplifier The amplifier for the current effect instance. Included for compatibility with vanilla's methods
+	 * @return Return whether the entity should keep the effect or have it removed early
 	 */
-	public void tick(LivingEntity entity, @Nullable MobEffectInstance effectInstance, int amplifier) {}
+	public boolean tick(LivingEntity entity, @Nullable MobEffectInstance effectInstance, int amplifier) {
+		return true;
+	}
 
 	/**
 	 * Check for whether an instance with this effect can be applied to an entity or not.
@@ -149,19 +157,19 @@ public class ExtendedMobEffect extends MobEffect {
 	}
 
 	public void addAttributeModifiers(@Nullable LivingEntity entity, AttributeMap attributeMap, int amplifier) {
-		for (Map.Entry<Attribute, AttributeModifierTemplate> entry : this.getAttributeModifiers().entrySet()) {
-			final Attribute attribute = entry.getKey();
+		for (Map.Entry<Holder<Attribute>, AttributeTemplate> entry : this.attributeModifiers.entrySet()) {
+			final Holder<Attribute> attribute = entry.getKey();
 			final AttributeInstance attributeInstance = attributeMap.getInstance(attribute);
 
 			if (attributeInstance != null) {
-				AttributeModifierTemplate template = entry.getValue();
-				AttributeModifier modifier = entry.getValue().create(amplifier);
-				double dynamicAmount = getAttributeModifierValue(entity, attribute, modifier.getAmount(), amplifier);
+				AttributeTemplate template = entry.getValue();
+				AttributeModifier modifier = entry.getValue().create(getDescriptionId(), amplifier);
+				double dynamicAmount = getAttributeModifierValue(entity, attribute, modifier.amount(), amplifier);
 
-				if (dynamicAmount != modifier.getAmount())
-					modifier = new AttributeModifier(template.getAttributeModifierId(), modifier.name, dynamicAmount, modifier.getOperation());
+				if (dynamicAmount != modifier.amount())
+					modifier = new AttributeModifier(template.id(), modifier.name(), dynamicAmount, modifier.operation());
 
-				attributeInstance.removeModifier(template.getAttributeModifierId());
+				attributeInstance.removeModifier(template.id());
 				attributeInstance.addPermanentModifier(modifier);
 			}
 		}
@@ -175,7 +183,7 @@ public class ExtendedMobEffect extends MobEffect {
 	 * @param effectAmplifier The effect amplifier from the MobEffectInstance
 	 * @return The calculated attribute value
 	 */
-	public double getAttributeModifierValue(@Nullable LivingEntity entity, @Nullable Attribute attribute, double baseModifierAmount, int effectAmplifier) {
+	public double getAttributeModifierValue(@Nullable LivingEntity entity, @Nullable Holder<Attribute> attribute, double baseModifierAmount, int effectAmplifier) {
 		return baseModifierAmount * (effectAmplifier + 1);
 	}
 
@@ -247,6 +255,17 @@ public class ExtendedMobEffect extends MobEffect {
 	}
 
 	/**
+	 * Handle whether an effect should be removed when the player consumes a Totem of Undying
+	 *
+	 * @param effectInstance The effect instance applied to the entity
+	 * @param entity The entity the effect is applied to
+	 * @return Whether the effect should be removed or not
+	 */
+	public boolean shouldBeRemovedByTotemOfDeath(MobEffectInstance effectInstance, LivingEntity entity) {
+		return true;
+	}
+
+	/**
 	 * Return an overlay renderer for this effect. Called when the effect is present on the entity, used for rendering screen effects
 	 * Clientside code must be handled outside of the MobEffect class for server-safety
 	 * @return The renderer
@@ -296,8 +315,8 @@ public class ExtendedMobEffect extends MobEffect {
 	 * Disabled, use {@link ExtendedMobEffect#tick(LivingEntity, MobEffectInstance, int)}
 	 */
 	@Override
-	public final void applyEffectTick(LivingEntity entity, int amplifier) {
-		tick(entity, null, amplifier);
+	public final boolean applyEffectTick(LivingEntity entity, int amplifier) {
+		return tick(entity, null, amplifier);
 	}
 
 	/**

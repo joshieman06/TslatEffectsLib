@@ -1,7 +1,10 @@
 package net.tslat.effectslib.mixin.common;
 
-import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectIntPair;
+import net.minecraft.core.Holder;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffect;
@@ -12,7 +15,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.tslat.effectslib.api.ExtendedEnchantment;
 import net.tslat.effectslib.api.ExtendedMobEffect;
 import net.tslat.effectslib.api.util.EnchantmentUtil;
@@ -37,13 +39,13 @@ import java.util.function.Consumer;
 
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin {
-	@Shadow @Final private Map<MobEffect, MobEffectInstance> activeEffects;
-
-	@Shadow protected abstract void onEffectAdded(MobEffectInstance pInstance, @Nullable Entity pEntity);
-
-	@Shadow protected abstract void onEffectRemoved(MobEffectInstance pEffectInstance);
-
-	@Shadow public abstract Collection<MobEffectInstance> getActiveEffects();
+	@Shadow
+	@Final
+	private Map<MobEffect, MobEffectInstance> activeEffects;
+	@Shadow
+	protected abstract void onEffectRemoved(MobEffectInstance pEffectInstance);
+	@Shadow
+	public abstract Collection<MobEffectInstance> getActiveEffects();
 
 	@ModifyArg(
 			method = "actuallyHurt",
@@ -53,15 +55,15 @@ public abstract class LivingEntityMixin {
 			),
 			index = 1
 	)
-	private float modifyDamage(DamageSource damageSource, float damage) {
+	private float tel$hookDamageReduction(DamageSource damageSource, float damage) {
 		if (!damageSource.is(DamageTypeTags.BYPASSES_EFFECTS))
-			damage = tslatEffectsLib$handleEntityDamage(damageSource, damage);
+			damage = tel$handleDamageReduction(damageSource, damage);
 
 		return damage;
 	}
 
-	@Unique
-	private float tslatEffectsLib$handleEntityDamage(DamageSource damageSource, float damage) {
+    @Unique
+	private float tel$handleDamageReduction(DamageSource damageSource, float damage) {
 		final LivingEntity victim = (LivingEntity)(Object)this;
 		final List<Consumer<Float>> attackerCallbacks = new ObjectArrayList<>();
 		final List<Consumer<Float>> victimCallbacks = new ObjectArrayList<>();
@@ -69,7 +71,7 @@ public abstract class LivingEntityMixin {
 
 		if (damageSource.getEntity() instanceof LivingEntity attacker) {
 			for (MobEffectInstance instance : attacker.getActiveEffects()) {
-				if (instance.getEffect() instanceof ExtendedMobEffect extendedMobEffect) {
+				if (instance.getEffect().value() instanceof ExtendedMobEffect extendedMobEffect) {
 					damage = extendedMobEffect.modifyOutgoingAttackDamage(attacker, victim, instance, damageSource, damage);
 
 					attackerCallbacks.add(dmg -> extendedMobEffect.afterOutgoingAttack(attacker, victim, instance, damageSource, dmg));
@@ -86,18 +88,18 @@ public abstract class LivingEntityMixin {
 					final int enchantedStacks = data.getEnchantedStacks().size();
 
 					for (int i = 0; i < enchantedStacks; i++) {
-						final IntObjectPair<ItemStack> stack = data.getEnchantedStacks().get(i);
-						damage = enchant.modifyOutgoingAttackDamage(attacker, victim, damageSource, damage, stack.second(), stack.firstInt(), totalLevel);
+						final ObjectIntPair<ItemStack> stack = data.getEnchantedStacks().get(i);
+						damage = enchant.modifyOutgoingAttackDamage(attacker, victim, damageSource, damage, stack.first(), stack.valueInt(), totalLevel);
 						final boolean isLastStack = i == enchantedStacks - 1;
 
-						attackerCallbacks.add(dmg -> enchant.afterOutgoingAttack(attacker, victim, damageSource, dmg, stack.second(), stack.firstInt(), totalLevel, isLastStack));
+						attackerCallbacks.add(dmg -> enchant.afterOutgoingAttack(attacker, victim, damageSource, dmg, stack.first(), stack.valueInt(), totalLevel, isLastStack));
 					}
 				}
 			}
 		}
 
 		for (MobEffectInstance instance : victim.getActiveEffects()) {
-			if (instance.getEffect() instanceof ExtendedMobEffect extendedMobEffect) {
+			if (instance.getEffect().value() instanceof ExtendedMobEffect extendedMobEffect) {
 				damage = extendedMobEffect.modifyIncomingAttackDamage(victim, instance, damageSource, damage);
 
 				victimCallbacks.add(dmg -> extendedMobEffect.afterIncomingAttack(victim, instance, damageSource, dmg));
@@ -114,11 +116,11 @@ public abstract class LivingEntityMixin {
 				final int enchantedStacks = data.getEnchantedStacks().size();
 
 				for (int i = 0; i < enchantedStacks; i++) {
-					final IntObjectPair<ItemStack> stack = data.getEnchantedStacks().get(i);
-					damage = enchant.modifyIncomingAttackDamage(victim, damageSource, damage, stack.second(), stack.firstInt(), totalLevel);
+					final ObjectIntPair<ItemStack> stack = data.getEnchantedStacks().get(i);
+					damage = enchant.modifyIncomingAttackDamage(victim, damageSource, damage, stack.first(), stack.valueInt(), totalLevel);
 					final boolean isLastStack = i == enchantedStacks - 1;
 
-					victimCallbacks.add(dmg -> enchant.afterIncomingAttack(victim, damageSource, dmg, stack.second(), stack.firstInt(), totalLevel, isLastStack));
+					victimCallbacks.add(dmg -> enchant.afterIncomingAttack(victim, damageSource, dmg, stack.first(), stack.valueInt(), totalLevel, isLastStack));
 				}
 			}
 		}
@@ -143,15 +145,15 @@ public abstract class LivingEntityMixin {
 			),
 			cancellable = true
 	)
-	private void checkCancellation(DamageSource damageSource, float damage, CallbackInfoReturnable<Boolean> callback) {
-		if (tslatEffectsLib$checkEffectAttackCancellation((LivingEntity)(Object)this, damageSource, damage))
+	private void tel$checkCancellation(DamageSource damageSource, float damage, CallbackInfoReturnable<Boolean> callback) {
+		if (tel$checkEffectAttackCancellation((LivingEntity)(Object)this, damageSource, damage))
 			callback.setReturnValue(false);
 	}
 
 	@Unique
-	private boolean tslatEffectsLib$checkEffectAttackCancellation(LivingEntity victim, DamageSource damageSource, float damage) {
+	private boolean tel$checkEffectAttackCancellation(LivingEntity victim, DamageSource damageSource, float damage) {
 		for (MobEffectInstance instance : victim.getActiveEffects()) {
-			if (instance.getEffect() instanceof ExtendedMobEffect extendedMobEffect)
+			if (instance.getEffect().value() instanceof ExtendedMobEffect extendedMobEffect)
 				if (!extendedMobEffect.beforeIncomingAttack(victim, instance, damageSource, damage))
 					return true;
 		}
@@ -159,18 +161,16 @@ public abstract class LivingEntityMixin {
 		return false;
 	}
 
-	@Redirect(
+	@Inject(
 			method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/entity/LivingEntity;onEffectAdded(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)V"
 			)
 	)
-	private void onAdded(LivingEntity entity, MobEffectInstance effectInstance, Entity source) {
-		if (effectInstance.getEffect() instanceof ExtendedMobEffect extendedEffect)
-			extendedEffect.onApplication(effectInstance, source, entity, effectInstance.getAmplifier());
-
-		onEffectAdded(effectInstance, source);
+	private void tel$onEffectAdded(MobEffectInstance effectInstance, @Nullable Entity source, CallbackInfoReturnable<Boolean> callback) {
+		if (effectInstance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
+			extendedEffect.onApplication(effectInstance, source, (LivingEntity)(Object)this, effectInstance.getAmplifier());
 	}
 
 	@Redirect(
@@ -180,11 +180,38 @@ public abstract class LivingEntityMixin {
 					target = "Lnet/minecraft/world/effect/MobEffectInstance;update(Lnet/minecraft/world/effect/MobEffectInstance;)Z"
 			)
 	)
-	private boolean onUpdate(MobEffectInstance existingEffect, MobEffectInstance newEffect) {
-		if (existingEffect.getEffect() instanceof ExtendedMobEffect extendedEffect)
+	private boolean tel$onEffectUpdated(MobEffectInstance existingEffect, MobEffectInstance newEffect) {
+		if (existingEffect.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
 			newEffect = extendedEffect.onReapplication(existingEffect, newEffect, (LivingEntity)(Object)this);
 
 		return existingEffect.update(newEffect);
+	}
+
+	@Redirect(
+			method = "checkTotemDeathProtection",
+			at = @At(
+					value = "INVOKE",
+					target = "Lnet/minecraft/world/entity/LivingEntity;removeAllEffects()Z"
+			)
+	)
+	private boolean tel$checkTotemUndyingClear(LivingEntity entity) {
+		if (entity.level().isClientSide())
+			return false;
+
+		boolean hasRemoved = false;
+
+		for (Iterator<MobEffectInstance> iterator = this.activeEffects.values().iterator(); iterator.hasNext();) {
+			MobEffectInstance instance = iterator.next();
+
+			if (!(instance.getEffect().value() instanceof ExtendedMobEffect extendedEffect) || extendedEffect.shouldBeRemovedByTotemOfDeath(instance, entity)) {
+				onEffectRemoved(instance);
+				iterator.remove();
+
+				hasRemoved = true;
+			}
+		}
+
+		return hasRemoved;
 	}
 
 	@Inject(
@@ -192,8 +219,8 @@ public abstract class LivingEntityMixin {
 			at = @At(value = "HEAD"),
 			cancellable = true
 	)
-	private void onRemoval(MobEffect effect, CallbackInfoReturnable<Boolean> callback) {
-		if (effect instanceof ExtendedMobEffect extendedEffect) {
+	private void tel$onEffectRemoved(Holder<MobEffect> effect, CallbackInfoReturnable<Boolean> callback) {
+		if (effect.value() instanceof ExtendedMobEffect extendedEffect) {
 			final MobEffectInstance effectInstance = this.activeEffects.get(extendedEffect);
 
 			if (effectInstance instanceof MobEffectInstanceAccessor instance && instance.hasTicksRemaining() && !extendedEffect.onRemove(effectInstance, (LivingEntity)(Object)this))
@@ -201,17 +228,17 @@ public abstract class LivingEntityMixin {
 		}
 	}
 
-	@Redirect(
+    @Redirect(
 			method = "removeAllEffects",
 			at = @At(
 					value = "INVOKE",
 					target = "Ljava/util/Collection;iterator()Ljava/util/Iterator;"
 			)
 	)
-	private Iterator<MobEffectInstance> wrapRemoveAllEffects(Collection<MobEffectInstance> collection) {
+	private Iterator<MobEffectInstance> tel$wrapRemoveAllEffects(Collection<MobEffectInstance> collection) {
 		final LivingEntity entity = (LivingEntity)(Object)this;
 
-		return new Iterator<MobEffectInstance>() {
+		return new Iterator<>() {
 			final Iterator<MobEffectInstance> iterator = collection.iterator();
 			MobEffectInstance next = null;
 
@@ -225,7 +252,7 @@ public abstract class LivingEntityMixin {
 
 				this.next = this.iterator.next();
 
-				if (this.next.getEffect() instanceof ExtendedMobEffect extendedEffect && !extendedEffect.onRemove(this.next, entity)) {
+				if (this.next.getEffect().value() instanceof ExtendedMobEffect extendedEffect && !extendedEffect.onRemove(this.next, entity)) {
 					this.next = null;
 
 					return hasNext();
@@ -260,10 +287,10 @@ public abstract class LivingEntityMixin {
 					target = "Lnet/minecraft/world/entity/LivingEntity;onEffectRemoved(Lnet/minecraft/world/effect/MobEffectInstance;)V"
 			)
 	)
-	private void onExpiry(LivingEntity instance, MobEffectInstance effectInstance) {
+	private void tel$onEffectExpired(LivingEntity instance, MobEffectInstance effectInstance) {
 		onEffectRemoved(effectInstance);
 
-		if (effectInstance.getEffect() instanceof ExtendedMobEffect extendedEffect)
+		if (effectInstance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
 			extendedEffect.onExpiry(effectInstance, instance);
 	}
 
@@ -274,13 +301,15 @@ public abstract class LivingEntityMixin {
 			),
 			cancellable = true
 	)
-	private void canApplyEffect(MobEffectInstance effectInstance, CallbackInfoReturnable<Boolean> callback) {
-		if (effectInstance.getEffect() instanceof ExtendedMobEffect extendedEffect && !extendedEffect.canApply((LivingEntity)(Object)this, effectInstance))
+	private void tel$checkEffectApplicability(MobEffectInstance effectInstance, CallbackInfoReturnable<Boolean> callback) {
+		final LivingEntity self = (LivingEntity)(Object)this;
+
+		if (effectInstance.getEffect().value() instanceof ExtendedMobEffect extendedEffect && !extendedEffect.canApply(self, effectInstance))
 			callback.setReturnValue(false);
 
 		if (!getActiveEffects().isEmpty()) {
 			for (MobEffectInstance otherInstance : getActiveEffects()) {
-				if (otherInstance.getEffect() instanceof ExtendedMobEffect extendedEffect && !extendedEffect.canApplyOther((LivingEntity)(Object)this, otherInstance))
+				if (otherInstance.getEffect().value() instanceof ExtendedMobEffect extendedEffect && !extendedEffect.canApplyOther(self, otherInstance))
 					callback.setReturnValue(false);
 			}
 		}
@@ -295,17 +324,19 @@ public abstract class LivingEntityMixin {
 			),
 			cancellable = true
 	)
-	private void onEffectsTick(CallbackInfo callback) {
-		if (((LivingEntity)(Object)this).level().isClientSide() && !tslatEffectsLib$doCustomEffectParticles((LivingEntity)(Object)this))
+	private void tel$doEffectParticles(CallbackInfo callback) {
+		final LivingEntity self = (LivingEntity)(Object)this;
+
+		if (self.level().isClientSide() && !tel$checkCustomEffectParticles(self))
 			callback.cancel();
 	}
 
 	@Unique
-	private boolean tslatEffectsLib$doCustomEffectParticles(LivingEntity entity) {
+	private boolean tel$checkCustomEffectParticles(LivingEntity entity) {
 		boolean continueVanilla = false;
 
 		for (MobEffectInstance effect : this.activeEffects.values()) {
-			if (!(effect.getEffect() instanceof ExtendedMobEffect extendedEffect) || !extendedEffect.doClientSideEffectTick(effect, entity))
+			if (!(effect.getEffect().value() instanceof ExtendedMobEffect extendedEffect) || !extendedEffect.doClientSideEffectTick(effect, entity))
 				continueVanilla = true;
 		}
 
@@ -320,39 +351,59 @@ public abstract class LivingEntityMixin {
 			),
 			locals = LocalCapture.CAPTURE_FAILSOFT
 	)
-	private void onEquipmentChange(CallbackInfoReturnable<Map<EquipmentSlot, ItemStack>> callback, Map<EquipmentSlot, ItemStack> changeMap, EquipmentSlot[] slots, int slotsSize, int slotIndex, EquipmentSlot slot, ItemStack oldStack, ItemStack newStack) {
-		tslatEffectsLib$handleEquipChange((LivingEntity)(Object)this, oldStack, newStack, slot);
+	private void tel$onEquipmentChange(CallbackInfoReturnable<Map<EquipmentSlot, ItemStack>> callback, Map<EquipmentSlot, ItemStack> changeMap, EquipmentSlot[] slots, int slotsSize, int slotIndex, EquipmentSlot slot, ItemStack oldStack, ItemStack newStack) {
+		tel$handleEquipmentChange((LivingEntity)(Object)this, oldStack, newStack, slot);
 	}
 
 	@Unique
-	private void tslatEffectsLib$handleEquipChange(LivingEntity entity, ItemStack from, ItemStack to, EquipmentSlot slot) {
+	private void tel$handleEquipmentChange(LivingEntity entity, ItemStack from, ItemStack to, EquipmentSlot slot) {
 		if (from == to)
 			return;
 
-		for (EnchantmentInstance instance : EnchantmentUtil.getStackEnchantmentsForUse(entity, from, slot, true)) {
-			((ExtendedEnchantment)instance.enchantment).onUnequip(entity, slot, from, to, instance.level);
+		for (ObjectIntPair<Holder<ExtendedEnchantment>> instance : EnchantmentUtil.<ExtendedEnchantment>getStackEnchantmentsForUse(entity, from, slot, true)) {
+			instance.key().value().onUnequip(entity, slot, from, to, instance.valueInt());
 		}
 
-		for (EnchantmentInstance instance : EnchantmentUtil.getStackEnchantmentsForUse(entity, to, slot, true)) {
-			((ExtendedEnchantment)instance.enchantment).onEquip(entity, slot, from, to, instance.level);
+		for (ObjectIntPair<Holder<ExtendedEnchantment>> instance : EnchantmentUtil.<ExtendedEnchantment>getStackEnchantmentsForUse(entity, to, slot, true)) {
+			instance.key().value().onEquip(entity, slot, from, to, instance.valueInt());
 		}
 	}
 
 	@Inject(method = "aiStep", at = @At("HEAD"))
-	public void tickExtendedEnchantments(CallbackInfo ci) {
-		LivingEntity self = (LivingEntity)(Object)this;
+	public void tel$onEntityTick(CallbackInfo ci) {
+		final LivingEntity self = (LivingEntity)(Object)this;
 
 		if (!(self instanceof Player)) {
-			self.getArmorSlots().forEach(stack -> tslatEffectsLib$tickEnchantmentsForEquipment(self, stack));
-			tslatEffectsLib$tickEnchantmentsForEquipment(self, self.getMainHandItem());
-			tslatEffectsLib$tickEnchantmentsForEquipment(self, self.getOffhandItem());
+			self.getArmorSlots().forEach(stack -> tel$tickEnchantmentsForEquipment(self, stack));
+			tel$tickEnchantmentsForEquipment(self, self.getMainHandItem());
+			tel$tickEnchantmentsForEquipment(self, self.getOffhandItem());
 		}
 	}
 
 	@Unique
-	private static void tslatEffectsLib$tickEnchantmentsForEquipment(LivingEntity entity, ItemStack stack) {
-		for (EnchantmentInstance enchant : EnchantmentUtil.getStackEnchantmentsForUse(entity, stack, null, true)) {
-			((ExtendedEnchantment)enchant.enchantment).tick(entity, stack);
+	private static void tel$tickEnchantmentsForEquipment(LivingEntity entity, ItemStack stack) {
+		for (ObjectIntPair<Holder<ExtendedEnchantment>> enchant : EnchantmentUtil.<ExtendedEnchantment>getStackEnchantmentsForUse(entity, stack, null, true)) {
+			enchant.key().value().tick(entity, stack);
 		}
+	}
+
+	@Redirect(method = "addAdditionalSaveData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;save()Lnet/minecraft/nbt/Tag;"))
+	public Tag tel$wrapEffectSave(MobEffectInstance instance) {
+		final CompoundTag data = (CompoundTag)instance.save();
+
+		if (instance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
+			extendedEffect.write(data, instance);
+
+		return data;
+	}
+
+	@Redirect(method = "readAdditionalSaveData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;load(Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/effect/MobEffectInstance;"))
+	public MobEffectInstance tel$wrapEffectLoad(CompoundTag tag) {
+		final MobEffectInstance instance = MobEffectInstance.load(tag);
+
+		if (instance != null && instance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
+			extendedEffect.read(tag, instance);
+
+		return instance;
 	}
 }

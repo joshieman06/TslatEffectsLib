@@ -1,7 +1,7 @@
 package net.tslat.effectslib.mixin.common;
 
-import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectIntPair;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -33,15 +33,15 @@ public class PlayerMixin {
 			),
 			index = 1
 	)
-	private float modifyDamage(DamageSource damageSource, float damage) {
+	private float tel$onIncomingAttack(DamageSource damageSource, float damage) {
 		if (!damageSource.is(DamageTypeTags.BYPASSES_EFFECTS))
-			damage = tslatEffectsLib$handlePlayerDamage(damageSource, damage);
+			damage = tel$handlePlayerDamage(damageSource, damage);
 
 		return damage;
 	}
 
-	@Unique
-	private float tslatEffectsLib$handlePlayerDamage(DamageSource damageSource, float damage) {
+    @Unique
+	private float tel$handlePlayerDamage(DamageSource damageSource, float damage) {
 		final LivingEntity victim = (LivingEntity)(Object)this;
 		final List<Consumer<Float>> attackerCallbacks = new ObjectArrayList<>();
 		final List<Consumer<Float>> victimCallbacks = new ObjectArrayList<>();
@@ -49,7 +49,7 @@ public class PlayerMixin {
 
 		if (damageSource.getEntity() instanceof LivingEntity attacker) {
 			for (MobEffectInstance instance : attacker.getActiveEffects()) {
-				if (instance.getEffect() instanceof ExtendedMobEffect extendedMobEffect) {
+				if (instance.getEffect().value() instanceof ExtendedMobEffect extendedMobEffect) {
 					damage = extendedMobEffect.modifyOutgoingAttackDamage(attacker, victim, instance, damageSource, damage);
 
 					attackerCallbacks.add(dmg -> extendedMobEffect.afterOutgoingAttack(attacker, victim, instance, damageSource, dmg));
@@ -66,18 +66,18 @@ public class PlayerMixin {
 					final int enchantedStacks = data.getEnchantedStacks().size();
 
 					for (int i = 0; i < enchantedStacks; i++) {
-						final IntObjectPair<ItemStack> stack = data.getEnchantedStacks().get(i);
-						damage = enchant.modifyOutgoingAttackDamage(attacker, victim, damageSource, damage, stack.second(), stack.firstInt(), totalLevel);
+						final ObjectIntPair<ItemStack> stack = data.getEnchantedStacks().get(i);
+						damage = enchant.modifyOutgoingAttackDamage(attacker, victim, damageSource, damage, stack.key(), stack.valueInt(), totalLevel);
 						final boolean isLastStack = i == enchantedStacks - 1;
 
-						attackerCallbacks.add(dmg -> enchant.afterOutgoingAttack(attacker, victim, damageSource, dmg, stack.second(), stack.firstInt(), totalLevel, isLastStack));
+						attackerCallbacks.add(dmg -> enchant.afterOutgoingAttack(attacker, victim, damageSource, dmg, stack.key(), stack.valueInt(), totalLevel, isLastStack));
 					}
 				}
 			}
 		}
 
 		for (MobEffectInstance instance : victim.getActiveEffects()) {
-			if (instance.getEffect() instanceof ExtendedMobEffect extendedMobEffect) {
+			if (instance.getEffect().value() instanceof ExtendedMobEffect extendedMobEffect) {
 				damage = extendedMobEffect.modifyIncomingAttackDamage(victim, instance, damageSource, damage);
 
 				victimCallbacks.add(dmg -> extendedMobEffect.afterIncomingAttack(victim, instance, damageSource, dmg));
@@ -94,11 +94,11 @@ public class PlayerMixin {
 				final int enchantedStacks = data.getEnchantedStacks().size();
 
 				for (int i = 0; i < enchantedStacks; i++) {
-					final IntObjectPair<ItemStack> stack = data.getEnchantedStacks().get(i);
-					damage = enchant.modifyIncomingAttackDamage(victim, damageSource, damage, stack.second(), stack.firstInt(), totalLevel);
+					final ObjectIntPair<ItemStack> stack = data.getEnchantedStacks().get(i);
+					damage = enchant.modifyIncomingAttackDamage(victim, damageSource, damage, stack.key(), stack.valueInt(), totalLevel);
 					final boolean isLastStack = i == enchantedStacks - 1;
 
-					victimCallbacks.add(dmg -> enchant.afterIncomingAttack(victim, damageSource, dmg, stack.second(), stack.firstInt(), totalLevel, isLastStack));
+					victimCallbacks.add(dmg -> enchant.afterIncomingAttack(victim, damageSource, dmg, stack.key(), stack.valueInt(), totalLevel, isLastStack));
 				}
 			}
 		}
@@ -123,15 +123,15 @@ public class PlayerMixin {
 			),
 			cancellable = true
 	)
-	private void checkCancellation(DamageSource damageSource, float damage, CallbackInfoReturnable<Boolean> callback) {
-		if (tslatEffectsLib$checkEffectAttackCancellation((LivingEntity)(Object)this, damageSource, damage))
+	private void tel$checkIncomingAttack(DamageSource damageSource, float damage, CallbackInfoReturnable<Boolean> callback) {
+		if (tel$checkEffectAttackCancellation((LivingEntity)(Object)this, damageSource, damage))
 			callback.setReturnValue(false);
 	}
 
 	@Unique
-	private boolean tslatEffectsLib$checkEffectAttackCancellation(LivingEntity victim, DamageSource damageSource, float damage) {
+	private boolean tel$checkEffectAttackCancellation(LivingEntity victim, DamageSource damageSource, float damage) {
 		for (MobEffectInstance instance : victim.getActiveEffects()) {
-			if (instance.getEffect() instanceof ExtendedMobEffect extendedMobEffect)
+			if (instance.getEffect().value() instanceof ExtendedMobEffect extendedMobEffect)
 				if (!extendedMobEffect.beforeIncomingAttack(victim, instance, damageSource, damage))
 					return true;
 		}

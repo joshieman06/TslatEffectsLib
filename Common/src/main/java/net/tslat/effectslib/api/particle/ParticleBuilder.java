@@ -4,8 +4,11 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.RandomSource;
@@ -31,6 +34,8 @@ import java.util.function.Supplier;
  * <p>For networking, use {@link #toNetwork(FriendlyByteBuf)} and {@link #fromNetwork(FriendlyByteBuf)} for de/serialization</p>
  */
 public final class ParticleBuilder {
+    public static final StreamCodec<RegistryFriendlyByteBuf, ParticleBuilder> CODEC = StreamCodec.ofMember(ParticleBuilder::toNetwork, ParticleBuilder::fromNetwork);
+
     private final ParticleOptions particle;
 
     private long seed;
@@ -498,9 +503,9 @@ public final class ParticleBuilder {
         }
     }
 
-    public void toNetwork(final FriendlyByteBuf buffer) {
+    public void toNetwork(final RegistryFriendlyByteBuf buffer) {
         buffer.writeResourceLocation(BuiltInRegistries.PARTICLE_TYPE.getKey(this.particle.getType()));
-        this.particle.writeToNetwork(buffer);
+        ParticleTypes.STREAM_CODEC.encode(buffer, this.particle);
         buffer.writeVarInt(this.particleCount);
 
         buffer.writeEnum(this.positionType);
@@ -548,13 +553,13 @@ public final class ParticleBuilder {
         buffer.writeFloat(this.scale);
     }
 
-    public static ParticleBuilder fromNetwork(final FriendlyByteBuf buffer) {
+    public static ParticleBuilder fromNetwork(final RegistryFriendlyByteBuf buffer) {
         ParticleType<? extends ParticleOptions> particleType = BuiltInRegistries.PARTICLE_TYPE.get(buffer.readResourceLocation());
 
         if (particleType == null)
             return new ParticleBuilder(null, null);
 
-        final ParticleOptions particle = deserializeParticle(buffer, particleType);
+        final ParticleOptions particle = ParticleTypes.STREAM_CODEC.decode(buffer);
         final int particleCount = buffer.readVarInt();
         ParticleBuilder builder = new ParticleBuilder(particle, buffer.readEnum(ParticlePositionWorker.PositionType.class).constructFromNetwork(buffer));
 
@@ -605,9 +610,5 @@ public final class ParticleBuilder {
             if (!transitions.isEmpty())
                 scheduler.accept(transitionHandlerRunnable(transitions, particle, scheduler));
         };
-    }
-
-    private static <T extends ParticleOptions> T deserializeParticle(FriendlyByteBuf buffer, ParticleType<T> particleType) {
-        return particleType.getDeserializer().fromNetwork(particleType, buffer);
     }
 }

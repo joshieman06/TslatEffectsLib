@@ -1,11 +1,14 @@
 package net.tslat.effectslib.networking;
 
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -14,17 +17,21 @@ import net.tslat.effectslib.TELConstants;
 import net.tslat.effectslib.TELFabricClient;
 import net.tslat.effectslib.networking.packet.MultiloaderPacket;
 
-import java.util.Locale;
-
 public final class TELNetworkingFabric implements TELNetworking {
     /**
      * Register a custom packet for networking
      * Packet must extend {@link MultiloaderPacket} for ease-of-use
      */
     @Override
-    public <P extends MultiloaderPacket> void registerPacketInternal(ResourceLocation id, Class<P> messageType, FriendlyByteBuf.Reader<P> decoder) {
-        TELFabricClient.registerPacket(messageType, decoder);
-        ServerPlayNetworking.registerGlobalReceiver(new ResourceLocation(TELConstants.MOD_ID, messageType.getName().toLowerCase(Locale.ROOT)), (server, player, packetListener, buffer, sender) -> decoder.apply(buffer).receiveMessage(player, server::execute));
+    public <B extends FriendlyByteBuf, P extends MultiloaderPacket> void registerPacketInternal(CustomPacketPayload.Type<P> packetType, StreamCodec<B, P> codec, boolean isClientBound) {
+        if (isClientBound) {
+            if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT)
+                TELFabricClient.registerPacket(packetType, codec);
+        }
+        else {
+            PayloadTypeRegistry.playC2S().register(packetType, (StreamCodec<FriendlyByteBuf, P>)codec);
+            ServerPlayNetworking.registerGlobalReceiver(packetType, (packet, context) -> packet.receiveMessage(context.player(), context.player().getServer()::execute));
+        }
     }
 
     /**
@@ -40,12 +47,8 @@ public final class TELNetworkingFabric implements TELNetworking {
      */
     @Override
     public void sendToAllPlayersInternal(MultiloaderPacket packet) {
-        FriendlyByteBuf buffer = PacketByteBufs.create();
-
-        packet.write(buffer);
-
         for (ServerPlayer pl : TELConstants.SERVER.getPlayerList().getPlayers()) {
-            ServerPlayNetworking.send(pl, packet.id(), buffer);
+            ServerPlayNetworking.send(pl, packet);
         }
     }
 
@@ -54,12 +57,8 @@ public final class TELNetworkingFabric implements TELNetworking {
      */
     @Override
     public void sendToAllPlayersInWorldInternal(MultiloaderPacket packet, ServerLevel level) {
-        FriendlyByteBuf buffer = PacketByteBufs.create();
-
-        packet.write(buffer);
-
         for (ServerPlayer pl : PlayerLookup.world(level)) {
-            ServerPlayNetworking.send(pl, packet.id(), buffer);
+            ServerPlayNetworking.send(pl, packet);
         }
     }
 
@@ -78,10 +77,7 @@ public final class TELNetworkingFabric implements TELNetworking {
      */
     @Override
     public void sendToPlayerInternal(MultiloaderPacket packet, ServerPlayer player) {
-        FriendlyByteBuf buffer = PacketByteBufs.create();
-
-        packet.write(buffer);
-        ServerPlayNetworking.send(player, packet.id(), buffer);
+        ServerPlayNetworking.send(player, packet);
     }
 
     /**

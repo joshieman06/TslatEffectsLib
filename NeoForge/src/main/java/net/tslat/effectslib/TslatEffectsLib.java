@@ -2,31 +2,21 @@ package net.tslat.effectslib;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlerEvent;
-import net.neoforged.neoforge.network.registration.IPayloadRegistrar;
-import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.registries.NeoForgeRegistries;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.tslat.effectslib.command.TELCommand;
 import net.tslat.effectslib.networking.TELNetworking;
 
-import java.util.function.Supplier;
-
 @Mod(TELConstants.MOD_ID)
 public class TslatEffectsLib {
-    public static IPayloadRegistrar packetRegistrar = null;
-
-    private static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES = DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, TELConstants.MOD_ID);
-
-    protected static final Supplier<AttachmentType<TELItemStackData>> ITEMSTACK_DATA = ATTACHMENT_TYPES.register("tel_stack", () -> AttachmentType.builder(TELItemStackData::new).build());
+    public static PayloadRegistrar packetRegistrar = null;
 
     public TslatEffectsLib(IEventBus modBus)  {
         NeoForge.EVENT_BUS.addListener(TslatEffectsLib::registerCommands);
         NeoForge.EVENT_BUS.addListener(TslatEffectsLib::serverStarted);
-        ATTACHMENT_TYPES.register(modBus);
         modBus.addListener(TslatEffectsLib::networkingInit);
     }
 
@@ -34,7 +24,7 @@ public class TslatEffectsLib {
         TELCommand.registerSubcommands(ev.getDispatcher(), ev.getBuildContext());
     }
 
-    private static void networkingInit(final RegisterPayloadHandlerEvent ev) {
+    private static void networkingInit(final RegisterPayloadHandlersEvent ev) {
         packetRegistrar = ev.registrar(TELConstants.MOD_ID);
         TELNetworking.init();
         packetRegistrar = null;

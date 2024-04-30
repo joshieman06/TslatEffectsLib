@@ -2,7 +2,8 @@ package net.tslat.effectslib.networking;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -17,8 +18,8 @@ public interface TELNetworking {
      * Register a custom packet for networking
      * <p>Packet must extend {@link MultiloaderPacket} for ease-of-use</p>
      */
-    static <P extends MultiloaderPacket> void registerPacket(ResourceLocation id, Class<P> messageType, FriendlyByteBuf.Reader<P> decoder) {
-        TELConstants.NETWORKING.registerPacketInternal(id, messageType, decoder);
+    static <B extends FriendlyByteBuf, P extends MultiloaderPacket> void registerPacket(CustomPacketPayload.Type<P> payloadType, StreamCodec<B, P> codec, boolean isClientBound) {
+        TELConstants.NETWORKING.registerPacketInternal(payloadType, codec, isClientBound);
     }
 
     /**
@@ -77,11 +78,11 @@ public interface TELNetworking {
 
 
     static void init() {
-        registerPacket(TELParticlePacket.ID, TELParticlePacket.class, TELParticlePacket::new);
-        registerPacket(TELClearParticlesPacket.ID, TELClearParticlesPacket.class, TELClearParticlesPacket::new);
+        registerPacket(TELParticlePacket.TYPE, TELParticlePacket.CODEC, true);
+        registerPacket(TELClearParticlesPacket.TYPE, TELClearParticlesPacket.CODEC, true);
     }
 
-    <P extends MultiloaderPacket> void registerPacketInternal(ResourceLocation id, Class<P> messageType, FriendlyByteBuf.Reader<P> decoder);
+    <B extends FriendlyByteBuf, P extends MultiloaderPacket> void registerPacketInternal(CustomPacketPayload.Type<P> packetType, StreamCodec<B, P> codec, boolean isClientBound);
     void sendToServerInternal(MultiloaderPacket packet);
     void sendToAllPlayersInternal(MultiloaderPacket packet);
     void sendToAllPlayersInWorldInternal(MultiloaderPacket packet, ServerLevel level);

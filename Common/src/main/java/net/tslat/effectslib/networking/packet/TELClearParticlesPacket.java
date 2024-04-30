@@ -1,6 +1,8 @@
 package net.tslat.effectslib.networking.packet;
 
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.tslat.effectslib.TELClient;
@@ -9,20 +11,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Consumer;
 
-public class TELClearParticlesPacket implements MultiloaderPacket {
-    public static final ResourceLocation ID = new ResourceLocation(TELConstants.MOD_ID, "tel_clear_particles");
-
-    public TELClearParticlesPacket() {}
-
-    public TELClearParticlesPacket(FriendlyByteBuf buffer) {}
+public record TELClearParticlesPacket() implements MultiloaderPacket {
+    public static final CustomPacketPayload.Type<TELClearParticlesPacket> TYPE = new Type<>(new ResourceLocation(TELConstants.MOD_ID, "tel_clear_particles"));
+    public static final StreamCodec<FriendlyByteBuf, TELClearParticlesPacket> CODEC = StreamCodec.unit(new TELClearParticlesPacket());
 
     @Override
-    public ResourceLocation id() {
-        return ID;
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
-
-    @Override
-    public void write(FriendlyByteBuf buffer) {}
 
     @Override
     public void receiveMessage(@Nullable Player sender, Consumer<Runnable> workQueue) {

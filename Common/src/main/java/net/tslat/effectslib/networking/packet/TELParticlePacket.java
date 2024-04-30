@@ -2,7 +2,10 @@ package net.tslat.effectslib.networking.packet;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -15,13 +18,19 @@ import net.tslat.effectslib.networking.TELNetworking;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.function.Consumer;
 
-public class TELParticlePacket implements MultiloaderPacket {
-    public static final ResourceLocation ID = new ResourceLocation(TELConstants.MOD_ID, "tel_particle");
+public record TELParticlePacket(Collection<ParticleBuilder> particles) implements MultiloaderPacket {
+    public static final CustomPacketPayload.Type<TELParticlePacket> TYPE = new Type<>(new ResourceLocation(TELConstants.MOD_ID, "tel_particle"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, TELParticlePacket> CODEC = StreamCodec.composite(
+            ByteBufCodecs.collection(ObjectArrayList::new, ParticleBuilder.CODEC),
+            TELParticlePacket::particles,
+            TELParticlePacket::new);
 
-    private final Collection<ParticleBuilder> particles;
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
 
     public TELParticlePacket() {
         this(1);
@@ -31,32 +40,14 @@ public class TELParticlePacket implements MultiloaderPacket {
         this(new ObjectArrayList<>(amount));
     }
 
-    public TELParticlePacket(List<ParticleBuilder> particles) {
-        this.particles = particles;
-    }
-
     public TELParticlePacket(ParticleBuilder... particles) {
         this(ObjectArrayList.of(particles));
-    }
-
-    public TELParticlePacket(FriendlyByteBuf buffer) {
-        this.particles = buffer.readCollection(ObjectArrayList::new, ParticleBuilder::fromNetwork);
-    }
-
-    @Override
-    public ResourceLocation id() {
-        return ID;
     }
 
     public TELParticlePacket particle(final ParticleBuilder particle) {
         this.particles.add(particle);
 
         return this;
-    }
-
-    @Override
-    public void write(FriendlyByteBuf buffer) {
-        buffer.writeCollection(this.particles, (buf, builder) -> builder.toNetwork(buf));
     }
 
     public boolean isEmpty() {

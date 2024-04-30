@@ -13,9 +13,4 @@ public class TELFabric implements TELCommon {
     public AABB getRandomEntityBoundingBox(Entity entity, RandomSource random) {
         return entity.getBoundingBox();
     }
-
-    @Override
-    public Map<Enchantment, Integer> getEnchantmentsFromStack(ItemStack stack) {
-        return TELStackComponent.getDataFor(stack).getCachedEnchantments();
-    }
 }

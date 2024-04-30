@@ -1,27 +1,40 @@
 package net.tslat.effectslib.api.util;
 
-import net.minecraft.nbt.CompoundTag;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.ItemLore;
 
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Helper class to make building potion ItemStacks easier.
  */
 public final class PotionBuilder {
 	private final Item potionItem;
-	private String displayName = null;
-	private boolean translatable = false;
-	private ArrayList<MobEffectInstance> effects = null;
-	private Integer colour = null;
-	private boolean dynamicColour = true;
+	private final Optional<Holder<Potion>> potion;
+
+	private Optional<Component> displayName = Optional.empty();
+	private Optional<List<Component>> lore = Optional.empty();
+	private List<MobEffectInstance> effects = new ObjectArrayList<>(1);
+	private Optional<Integer> colour = Optional.empty();
 
 	public PotionBuilder(Item potionItem) {
 		this.potionItem = potionItem;
+		this.potion = Optional.empty();
+	}
+
+	public PotionBuilder(Item potionItem, Holder<Potion> potion) {
+		this.potionItem = potionItem;
+		this.potion = Optional.of(potion);
 	}
 
 	/**
@@ -29,46 +42,48 @@ public final class PotionBuilder {
 	 * @param name The literal name of the stack
 	 * @return this
 	 */
-	public PotionBuilder withName(String name) {
-		this.displayName = name;
+	public PotionBuilder withName(Component name) {
+		this.displayName = Optional.of(name);
 
 		return this;
 	}
 
 	/**
-	 * Set the locale key for the display name of the potion ItemStack
-	 * @param nameLangKey The locale key
+	 * Set the 'lore' tooltip lines for the ItemStack
+	 *
+	 * @param lore The lore lines of the Itemstack
 	 * @return this
 	 */
-	public PotionBuilder withTranslationKey(String nameLangKey) {
-		this.displayName = nameLangKey;
-		this.translatable = true;
+	public PotionBuilder withLore(Component... lore) {
+		this.lore = Optional.of(List.of(lore));
 
 		return this;
 	}
 
 	/**
-	 * Add an additional effect to the potion ItemStack.
-	 * @param effect The effect instance
+	 * Add additional effects to the potion ItemStack.
+	 * @param effects The effect instance
 	 * @return this
 	 */
-	public PotionBuilder addEffect(MobEffectInstance effect) {
-		if (effects == null)
-			effects = new ArrayList<MobEffectInstance>(1);
+	public PotionBuilder addEffects(MobEffectInstance... effects) {
+		if (this.effects == null)
+			this.effects = new ObjectArrayList<>(effects.length);
 
-		this.effects.add(effect);
+        this.effects.addAll(Arrays.asList(effects));
 
 		return this;
 	}
 
 	/**
-	 * Set the colour of the potion in the stack.
+	 * Set the colour of the potion in the stack
+	 * <p>
+	 * This will override the default automatic computation of the colour from the potion contents
+	 *
 	 * @param colour The RGB packed colour int
 	 * @return this
 	 */
 	public PotionBuilder withColour(int colour) {
-		this.colour = Integer.parseInt(String.valueOf(colour), 16);
-		this.dynamicColour = false;
+		this.colour = Optional.of(colour);
 
 		return this;
 	}
@@ -78,24 +93,11 @@ public final class PotionBuilder {
 	 * @return The ItemStack
 	 */
 	public ItemStack build() {
-		ItemStack stack = new ItemStack(potionItem);
-		CompoundTag nbt = stack.getOrCreateTag();
-		CompoundTag displayTag = stack.getOrCreateTagElement("display");
+		final ItemStack stack = new ItemStack(this.potionItem);
 
-		if (displayName != null)
-			stack.setHoverName(translatable ? Component.translatable(displayName) : Component.literal(displayName));
-
-		if (dynamicColour && effects != null)
-			colour = PotionUtils.getColor(effects);
-
-		if (colour != null)
-			nbt.putString("CustomPotionColor", String.valueOf(colour));
-
-		if (effects != null && !effects.isEmpty())
-			PotionUtils.setCustomEffects(stack, effects);
-
-		if (!displayTag.isEmpty())
-			nbt.put("display", displayTag);
+		this.displayName.ifPresent(name -> stack.set(DataComponents.CUSTOM_NAME, name));
+		this.lore.ifPresent(lore -> stack.set(DataComponents.LORE, new ItemLore(lore)));
+		stack.set(DataComponents.POTION_CONTENTS, new PotionContents(this.potion, this.colour, this.effects));
 
 		return stack;
 	}

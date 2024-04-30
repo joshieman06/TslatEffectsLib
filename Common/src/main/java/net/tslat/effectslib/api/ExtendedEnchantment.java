@@ -1,14 +1,14 @@
 package net.tslat.effectslib.api;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectIntPair;
+import net.minecraft.core.Holder;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentCategory;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.tslat.effectslib.api.util.EnchantmentUtil;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,12 +21,8 @@ import java.util.Optional;
 public class ExtendedEnchantment extends Enchantment {
 	protected CalculationType levelCalculationType = CalculationType.MAX;
 
-	public ExtendedEnchantment(EnchantmentCategory category) {
-		this(Rarity.COMMON, category);
-	}
-
-	public ExtendedEnchantment(Rarity rarity, EnchantmentCategory category) {
-		super(rarity, category, new EquipmentSlot[0]);
+	public ExtendedEnchantment(EnchantmentDefinition definition) {
+		super(definition);
 	}
 
 	/**
@@ -53,7 +49,7 @@ public class ExtendedEnchantment extends Enchantment {
 	}
 
 	/**
-	 * Return whether the {@link net.minecraft.world.inventory.GrindstoneMenu#removeNonCurses(ItemStack, int, int) Grindstone} should remove this enchantment when repairing an item with this on it
+	 * Return whether the {@link net.minecraft.world.inventory.GrindstoneMenu#removeNonCursesFrom} Grindstone} should remove this enchantment when repairing an item with this on it
 	 * <p>Returning true from here will remove the enchantment, even if it is a {@link Enchantment#isCurse() curse}</p>
 	 * @param stack The ItemStack being modified
 	 * @return Whether the enchantment should be removed by the Grindstone or not, or null to default to vanilla behaviour
@@ -73,11 +69,11 @@ public class ExtendedEnchantment extends Enchantment {
 		for (EquipmentSlot slot : EquipmentSlot.values()) {
 			ItemStack stack = entity.getItemBySlot(slot);
 
-			if (!stack.isEmpty() && this.category.canEnchant(stack.getItem())) {
-				EnchantmentInstance instance = EnchantmentUtil.getEnchantInstanceForStack(this, stack);
+			if (!stack.isEmpty() && canEnchant(stack)) {
+				ObjectIntPair<Holder<Enchantment>> instance = EnchantmentUtil.getEnchantDetailsForStack(this, stack);
 
 				if (instance != null)
-					total = this.levelCalculationType.combine(total, instance.level);
+					total = this.levelCalculationType.combine(total, instance.valueInt());
 			}
 		}
 
@@ -97,7 +93,7 @@ public class ExtendedEnchantment extends Enchantment {
 	 * @return Whether the item can be enchanted or not with this enchantment
 	 */
 	public boolean canEnchant(ItemStack stack, String enchantSource) {
-		return this.category.canEnchant(stack.getItem());
+		return canEnchant(stack);
 	}
 
 	public static final String ANVIL = "anvil";
@@ -245,10 +241,10 @@ public class ExtendedEnchantment extends Enchantment {
 		for (EquipmentSlot slot : EquipmentSlot.values()) {
 			ItemStack stack = entity.getItemBySlot(slot);
 
-			if (!stack.isEmpty() && this.category.canEnchant(stack.getItem())) {
-				EnchantmentInstance enchantInstance = EnchantmentUtil.getEnchantInstanceForStack(this, stack);
+			if (!stack.isEmpty() && canEnchant(stack)) {
+				ObjectIntPair<Holder<Enchantment>> enchantInstance = EnchantmentUtil.getEnchantDetailsForStack(this, stack);
 
-				if (enchantInstance != null && isApplicable(stack, enchantInstance.level, entity, slot))
+				if (enchantInstance != null && isApplicable(stack, enchantInstance.valueInt(), entity, slot))
 					slots.put(slot, stack);
 			}
 		}
