@@ -1,4 +1,6 @@
 accessWidener v1 named
+# ENCHANTMENT
+accessible field net/minecraft/world/item/enchantment/Enchantment definition Lnet/minecraft/world/item/enchantment/Enchantment$EnchantmentDefinition;
 
 # MOB EFFECT
 extendable class net/minecraft/world/effect/MobEffect$AttributeTemplate

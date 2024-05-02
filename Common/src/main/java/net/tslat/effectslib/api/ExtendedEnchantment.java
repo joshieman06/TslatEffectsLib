@@ -26,6 +26,13 @@ public class ExtendedEnchantment extends Enchantment {
 	}
 
 	/**
+	 * Get the EnchantmentDefinition for this enchantment
+	 */
+	public EnchantmentDefinition getDefinition() {
+		return this.definition;
+	}
+
+	/**
 	 * Set the computation type for this enchantment's level for a given entity when the game attempts to get the enchantment level.<br>
 	 * @see CalculationType
 	 */
@@ -49,7 +56,7 @@ public class ExtendedEnchantment extends Enchantment {
 	}
 
 	/**
-	 * Return whether the {@link net.minecraft.world.inventory.GrindstoneMenu#removeNonCursesFrom} Grindstone} should remove this enchantment when repairing an item with this on it
+	 * Return whether the {@link net.minecraft.world.inventory.GrindstoneMenu#removeNonCursesFrom Grindstone} should remove this enchantment when repairing an item with this on it
 	 * <p>Returning true from here will remove the enchantment, even if it is a {@link Enchantment#isCurse() curse}</p>
 	 * @param stack The ItemStack being modified
 	 * @return Whether the enchantment should be removed by the Grindstone or not, or null to default to vanilla behaviour
@@ -93,7 +100,7 @@ public class ExtendedEnchantment extends Enchantment {
 	 * @return Whether the item can be enchanted or not with this enchantment
 	 */
 	public boolean canEnchant(ItemStack stack, String enchantSource) {
-		return canEnchant(stack);
+		return stack.getItem().builtInRegistryHolder().is(getDefinition().supportedItems());
 	}
 
 	public static final String ANVIL = "anvil";
