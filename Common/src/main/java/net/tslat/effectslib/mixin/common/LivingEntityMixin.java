@@ -1,10 +1,15 @@
 package net.tslat.effectslib.mixin.common;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectIntPair;
 import net.minecraft.core.Holder;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffect;
@@ -25,8 +30,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
@@ -47,24 +50,21 @@ public abstract class LivingEntityMixin {
 	@Shadow
 	public abstract Collection<MobEffectInstance> getActiveEffects();
 
-	@ModifyArg(
+	@WrapOperation(
 			method = "actuallyHurt",
 			at = @At(
 					value = "INVOKE",
-					target = "Lnet/minecraft/world/entity/LivingEntity;getDamageAfterMagicAbsorb(Lnet/minecraft/world/damagesource/DamageSource;F)F"
-			),
-			index = 1
+					target = "Lnet/minecraft/world/entity/LivingEntity;getDamageAfterMagicAbsorb(Lnet/minecraft/world/damagesource/DamageSource;F)F")
 	)
-	private float tel$hookDamageReduction(DamageSource damageSource, float damage) {
+	private float tel$hookDamageReduction(LivingEntity entity, DamageSource damageSource, float damage, Operation<Float> original) {
 		if (!damageSource.is(DamageTypeTags.BYPASSES_EFFECTS))
-			damage = tel$handleDamageReduction(damageSource, damage);
+			damage = tel$handleDamageReduction(entity, damageSource, damage);
 
-		return damage;
+		return original.call(entity, damageSource, damage);
 	}
 
     @Unique
-	private float tel$handleDamageReduction(DamageSource damageSource, float damage) {
-		final LivingEntity victim = (LivingEntity)(Object)this;
+	private float tel$handleDamageReduction(LivingEntity victim, DamageSource damageSource, float damage) {
 		final List<Consumer<Float>> attackerCallbacks = new ObjectArrayList<>();
 		final List<Consumer<Float>> victimCallbacks = new ObjectArrayList<>();
 		final boolean bypassesEnchants = damageSource.is(DamageTypeTags.BYPASSES_ENCHANTMENTS);
@@ -173,28 +173,28 @@ public abstract class LivingEntityMixin {
 			extendedEffect.onApplication(effectInstance, source, (LivingEntity)(Object)this, effectInstance.getAmplifier());
 	}
 
-	@Redirect(
+	@WrapOperation(
 			method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/effect/MobEffectInstance;update(Lnet/minecraft/world/effect/MobEffectInstance;)Z"
 			)
 	)
-	private boolean tel$onEffectUpdated(MobEffectInstance existingEffect, MobEffectInstance newEffect) {
+	private boolean tel$onEffectUpdated(MobEffectInstance existingEffect, MobEffectInstance newEffect, Operation<Boolean> original) {
 		if (existingEffect.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
 			newEffect = extendedEffect.onReapplication(existingEffect, newEffect, (LivingEntity)(Object)this);
 
-		return existingEffect.update(newEffect);
+		return original.call(existingEffect, newEffect);
 	}
 
-	@Redirect(
+	@WrapOperation(
 			method = "checkTotemDeathProtection",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/entity/LivingEntity;removeAllEffects()Z"
 			)
 	)
-	private boolean tel$checkTotemUndyingClear(LivingEntity entity) {
+	private boolean tel$checkTotemUndyingClear(LivingEntity entity, Operation<Boolean> original) {
 		if (entity.level().isClientSide())
 			return false;
 
@@ -228,14 +228,14 @@ public abstract class LivingEntityMixin {
 		}
 	}
 
-    @Redirect(
+    @WrapOperation(
 			method = "removeAllEffects",
 			at = @At(
 					value = "INVOKE",
 					target = "Ljava/util/Collection;iterator()Ljava/util/Iterator;"
 			)
 	)
-	private Iterator<MobEffectInstance> tel$wrapRemoveAllEffects(Collection<MobEffectInstance> collection) {
+	private Iterator<MobEffectInstance> tel$wrapRemoveAllEffects(Collection<MobEffectInstance> collection, Operation<Iterator<MobEffectInstance>> original) {
 		final LivingEntity entity = (LivingEntity)(Object)this;
 
 		return new Iterator<>() {
@@ -280,15 +280,15 @@ public abstract class LivingEntityMixin {
 		};
 	}
 
-	@Redirect(
+	@WrapOperation(
 			method = "tickEffects",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/entity/LivingEntity;onEffectRemoved(Lnet/minecraft/world/effect/MobEffectInstance;)V"
 			)
 	)
-	private void tel$onEffectExpired(LivingEntity instance, MobEffectInstance effectInstance) {
-		onEffectRemoved(effectInstance);
+	private void tel$onEffectExpired(LivingEntity instance, MobEffectInstance effectInstance, Operation<Void> original) {
+		original.call(instance, effectInstance);
 
 		if (effectInstance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
 			extendedEffect.onExpiry(effectInstance, instance);
@@ -297,7 +297,7 @@ public abstract class LivingEntityMixin {
 	@Inject(
 			method = "canBeAffected",
 			at = @At(
-					value = "TAIL"
+					value = "HEAD"
 			),
 			cancellable = true
 	)
@@ -315,20 +315,21 @@ public abstract class LivingEntityMixin {
 		}
 	}
 
-	@Inject(
+	@WrapOperation(
 			method = "tickEffects",
 			at = @At(
-					value = "INVOKE_ASSIGN",
+					value = "INVOKE",
 					target = "Lnet/minecraft/network/syncher/SynchedEntityData;get(Lnet/minecraft/network/syncher/EntityDataAccessor;)Ljava/lang/Object;",
 					ordinal = 0
-			),
-			cancellable = true
+			)
 	)
-	private void tel$doEffectParticles(CallbackInfo callback) {
+	private <T extends List<ParticleOptions>> Object tel$doEffectParticles(SynchedEntityData entityData, EntityDataAccessor<T> dataAcessor, Operation<T> original) {
 		final LivingEntity self = (LivingEntity)(Object)this;
 
 		if (self.level().isClientSide() && !tel$checkCustomEffectParticles(self))
-			callback.cancel();
+			return List.of();
+
+		return original.call(entityData, dataAcessor);
 	}
 
 	@Unique
@@ -369,7 +370,7 @@ public abstract class LivingEntityMixin {
 		}
 	}
 
-	@Inject(method = "aiStep", at = @At("HEAD"))
+	@Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;aiStep()V"))
 	public void tel$onEntityTick(CallbackInfo ci) {
 		final LivingEntity self = (LivingEntity)(Object)this;
 
@@ -387,19 +388,19 @@ public abstract class LivingEntityMixin {
 		}
 	}
 
-	@Redirect(method = "addAdditionalSaveData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;save()Lnet/minecraft/nbt/Tag;"))
-	public Tag tel$wrapEffectSave(MobEffectInstance instance) {
-		final CompoundTag data = (CompoundTag)instance.save();
+	@WrapOperation(method = "addAdditionalSaveData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;save()Lnet/minecraft/nbt/Tag;"))
+	public Tag tel$wrapEffectSave(MobEffectInstance instance, Operation<Tag> original) {
+		final Tag data = original.call(instance);
 
-		if (instance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
-			extendedEffect.write(data, instance);
+		if (data instanceof CompoundTag compoundTag && instance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
+			extendedEffect.write(compoundTag, instance);
 
 		return data;
 	}
 
-	@Redirect(method = "readAdditionalSaveData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;load(Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/effect/MobEffectInstance;"))
-	public MobEffectInstance tel$wrapEffectLoad(CompoundTag tag) {
-		final MobEffectInstance instance = MobEffectInstance.load(tag);
+	@WrapOperation(method = "readAdditionalSaveData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;load(Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/effect/MobEffectInstance;"))
+	public MobEffectInstance tel$wrapEffectLoad(CompoundTag tag, Operation<MobEffectInstance> original) {
+		final MobEffectInstance instance = original.call(tag);
 
 		if (instance != null && instance.getEffect().value() instanceof ExtendedMobEffect extendedEffect)
 			extendedEffect.read(tag, instance);

@@ -1,15 +1,16 @@
 package net.tslat.effectslib.mixin.common;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
 import net.tslat.effectslib.api.ExtendedMobEffect;
 import net.tslat.effectslib.api.ExtendedMobEffectHolder;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
  * Handle the various {@link MobEffectInstance callbacks}
@@ -19,39 +20,32 @@ public abstract class MobEffectInstanceMixin implements ExtendedMobEffectHolder 
 	@Unique
 	Object data;
 
-	@Shadow
-	private int duration;
-	@Shadow
-	private int amplifier;
-
-	@Shadow protected abstract boolean hasRemainingDuration();
-
-	@Redirect(
+	@WrapOperation(
 			method = "tick",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/effect/MobEffect;applyEffectTick(Lnet/minecraft/world/entity/LivingEntity;I)Z"
 			)
 	)
-	private boolean tel$onEffectTick(MobEffect effect, LivingEntity entity, int amplifier) {
+	private boolean tel$onEffectTick(MobEffect effect, LivingEntity entity, int amplifier, Operation<Boolean> original) {
 		if (effect instanceof ExtendedMobEffect extendedEffect)
 			return extendedEffect.tick(entity, (MobEffectInstance)(Object)this, amplifier);
 
-		return effect.applyEffectTick(entity, amplifier);
+		return original.call(effect, entity, amplifier);
 	}
 
-	@Redirect(
+	@WrapOperation(
 			method = "tick",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/world/effect/MobEffect;shouldApplyEffectTickThisTick(II)Z"
 			)
 	)
-	private boolean tel$checkEffectTick(MobEffect effect, int duration, int amplifier, LivingEntity entity) {
+	private boolean tel$checkEffectTick(MobEffect effect, int duration, int amplifier, Operation<Boolean> original, @Local(argsOnly = true) LivingEntity entity) {
 		if (!(effect instanceof ExtendedMobEffect extendedEffect))
-			return effect.shouldApplyEffectTickThisTick(duration, amplifier);
+			return original.call(effect, duration, amplifier);
 
-		return extendedEffect.shouldTickEffect((MobEffectInstance)(Object)this, entity, this.duration, this.amplifier);
+		return extendedEffect.shouldTickEffect((MobEffectInstance)(Object)this, entity, duration, amplifier);
 	}
 
 	@Override
