@@ -3,7 +3,6 @@ package net.tslat.effectslib;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
-import net.minecraftforge.fml.common.Mod;
 import net.tslat.effectslib.command.TELCommand;
 import net.tslat.effectslib.networking.TELNetworking;
 

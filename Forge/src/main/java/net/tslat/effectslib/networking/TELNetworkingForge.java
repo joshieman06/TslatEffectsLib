@@ -2,6 +2,9 @@ package net.tslat.effectslib.networking;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -11,25 +14,41 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.Channel;
 import net.minecraftforge.network.ChannelBuilder;
 import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.SimpleChannel;
+import net.minecraftforge.network.payload.PayloadProtocol;
 import net.tslat.effectslib.TELClient;
 import net.tslat.effectslib.TELConstants;
 import net.tslat.effectslib.networking.packet.MultiloaderPacket;
 
 public class TELNetworkingForge implements TELNetworking {
-	private static final int VERSION = 1;
-	private static final SimpleChannel CHANNEL = ChannelBuilder.named(new ResourceLocation(TELConstants.MOD_ID, "tel_channel")).acceptedVersions(Channel.VersionTest.exact(VERSION)).clientAcceptedVersions(Channel.VersionTest.exact(VERSION)).simpleChannel();
+	public static PayloadProtocol<RegistryFriendlyByteBuf, CustomPacketPayload> NETWORK_CHANNEL_BUILDER = ChannelBuilder.named(new ResourceLocation(TELConstants.MOD_ID, "tel_packets")).networkProtocolVersion(1).payloadChannel().play();
+	public static Channel<CustomPacketPayload> CHANNEL;
+
+	public TELNetworkingForge() {}
+
+	public static void init() {
+		TELNetworking.init();
+
+		CHANNEL = NETWORK_CHANNEL_BUILDER.bidirectional().build();
+	}
 
 	/**
 	 * Register a custom packet for networking
 	 * Packet must extend {@link MultiloaderPacket} for ease-of-use
 	 */
 	@Override
-	public <P extends MultiloaderPacket> void registerPacketInternal(ResourceLocation id, Class<P> messageType, FriendlyByteBuf.Reader<P> decoder) {
-		CHANNEL.messageBuilder(messageType).encoder(MultiloaderPacket::write).decoder(decoder).consumerMainThread((packet, context) -> {
-			packet.receiveMessage(context.getSender() != null ? context.getSender() : TELClient.getClientPlayer(), context::enqueueWork);
-			context.setPacketHandled(true);
-		});
+	public <B extends FriendlyByteBuf, P extends MultiloaderPacket> void registerPacketInternal(CustomPacketPayload.Type<P> packetType, StreamCodec<B, P> codec, boolean isClientBound) {
+		if (isClientBound) {
+			NETWORK_CHANNEL_BUILDER.clientbound().add(packetType, (StreamCodec<RegistryFriendlyByteBuf, P>)codec, (packet, context) -> {
+				packet.receiveMessage(context.getSender() != null ? context.getSender() : TELClient.getClientPlayer(), context::enqueueWork);
+				context.setPacketHandled(true);
+			});
+		}
+		else {
+			NETWORK_CHANNEL_BUILDER.serverbound().add(packetType, (StreamCodec<RegistryFriendlyByteBuf, P>)codec, (packet, context) -> {
+				packet.receiveMessage(context.getSender() != null ? context.getSender() : TELClient.getClientPlayer(), context::enqueueWork);
+				context.setPacketHandled(true);
+			});
+		}
 	}
 
 	/**
