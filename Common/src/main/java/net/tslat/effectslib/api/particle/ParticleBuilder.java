@@ -6,7 +6,6 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.server.level.ServerLevel;
@@ -30,8 +29,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Flexible & powerful custom particle builder that allows for definition of a particle & various modifications to it, that can then be deployed on the client or sent via a packet.
- * <p>For networking, use {@link #toNetwork(FriendlyByteBuf)} and {@link #fromNetwork(FriendlyByteBuf)} for de/serialization</p>
+ * Flexible and powerful custom particle builder that allows for definition of a particle and various modifications to it, that can then be deployed on the client or sent via a packet.
+ * <p>For networking, use {@link #toNetwork(RegistryFriendlyByteBuf)} and {@link #fromNetwork(RegistryFriendlyByteBuf)} for de/serialization</p>
  */
 public final class ParticleBuilder {
     public static final StreamCodec<RegistryFriendlyByteBuf, ParticleBuilder> CODEC = StreamCodec.ofMember(ParticleBuilder::toNetwork, ParticleBuilder::fromNetwork);
@@ -70,6 +69,34 @@ public final class ParticleBuilder {
         this.seed = ThreadLocalRandom.current().nextLong();
 
         defaultParticleCount();
+    }
+
+    /**
+     * Create a new particle builder based on the values of the given builder, allowing for easier modifications of similar particles
+     */
+    public static ParticleBuilder basedOn(ParticleBuilder builder) {
+        final ParticleBuilder newBuilder = new ParticleBuilder(builder.particle, builder.positionHandler);
+
+        newBuilder.seed = builder.seed;
+        newBuilder.positionHandler = builder.positionHandler;
+        newBuilder.positionType = builder.positionType;
+        newBuilder.transitions = builder.transitions;
+        newBuilder.particleConsumer = builder.particleConsumer;
+        newBuilder.isSimple = builder.isSimple;
+        newBuilder.particlesPerPosition = builder.particlesPerPosition;
+        newBuilder.particleCount = builder.particleCount;
+        newBuilder.cutoffDistance = builder.cutoffDistance;
+        newBuilder.force = builder.force;
+        newBuilder.ambient = builder.ambient;
+        newBuilder.velocity = builder.velocity;
+        newBuilder.power = builder.power;
+        newBuilder.colourOverride = builder.colourOverride;
+        newBuilder.lifespan = builder.lifespan;
+        newBuilder.gravity = builder.gravity;
+        newBuilder.drag = builder.drag;
+        newBuilder.scale = builder.scale;
+
+        return newBuilder;
     }
 
     /**

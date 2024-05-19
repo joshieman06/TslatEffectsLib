@@ -1,66 +1,46 @@
 plugins {
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'ml-platform-config'
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
     id 'org.spongepowered.mixin' version '0.7.+'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'net.darkhax.curseforgegradle' version '1.1.15'
+    id "com.modrinth.minotaur" version "2.+"
 }
+
+def accessTransformersFile = file('src/main/resources/META-INF/accesstransformer.cfg')
+
+if (accessTransformersFile.exists())
+    minecraft.accessTransformer accessTransformersFile
 
 minecraft {
     mappings channel: mappings_channel, version: "${mappings_mc_version}-${parchment_version}-${minecraft_version}"
-    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
     copyIdeResources = true
     reobf = false
-
-    runs {
-        client {
+	
+	runs {
+        configureEach {
             workingDirectory project.file('run')
             ideaModule "${rootProject.name}.${project.name}.main"
-            taskName 'Client'
             property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-            arg "-mixin.config="+mod_id+".mixins.json"
+            property 'mixin.env.refMapRemappingFile', "${buildDir}/createSrgToMcp/output.srg"
+            args "-mixin.config=${mod_id}.mixins.json"
 
-            mods {
-                modClientRun {
-                    source sourceSets.main
-                    source project(":Common").sourceSets.main
-                }
-            }
+            source sourceSets.main
+            source project(":common").sourceSets.main
+        }
+
+        client {
+            taskName 'Client'
         }
 
         server {
-            workingDirectory project.file('run')
-            ideaModule "${rootProject.name}.${project.name}.main"
             taskName 'Server'
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-            arg "-mixin.config="+mod_id+".mixins.json"
-
-            mods {
-                modServerRun {
-                    source sourceSets.main
-                    source project(":Common").sourceSets.main
-                }
-            }
-        }
-
-        data {
-            workingDirectory project.file('run')
-            ideaModule "${rootProject.name}.${project.name}.main"
-            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-            taskName 'Data'
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-            arg "-mixin.config="+mod_id+".mixins.json"
-
-            mods {
-                modDataRun {
-                    source sourceSets.main
-                    source project(":Common").sourceSets.main
-                }
-            }
+            args '--nogui'
         }
     }
 }
+
+sourceSets.main.resources.srcDir 'src/generated/resources'
 
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
@@ -68,8 +48,12 @@ mixin {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    annotationProcessor 'org.spongepowered:mixin:0.8.6:processor'
+    annotationProcessor "org.spongepowered:mixin:${mixin_processor_version}:processor"
+    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.3.5"))
+    runtimeOnly(annotationProcessor("io.github.llamalad7:mixinextras-forge:0.3.5"))
     implementation('net.sf.jopt-simple:jopt-simple:5.0.4') { version { strictly '5.0.4' } }
+
+    jarJar(group: 'io.github.llamalad7', name: 'mixinextras-common', version: "[0.3.5,)")
 }
 
 sourceSets.each {
@@ -78,15 +62,8 @@ sourceSets.each {
     it.java.destinationDirectory = dir
 }
 
-jar.finalizedBy('reobfJar')
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId = archivesBaseName
-            from components.java
-        }
-    }
+processResources {
+	exclude '**/*.accesswidener'
 }
 
 task publishToCurseForge(type: net.darkhax.curseforgegradle.TaskPublishCurseForge) {
@@ -97,9 +74,9 @@ task publishToCurseForge(type: net.darkhax.curseforgegradle.TaskPublishCurseForg
     mainFile.releaseType = "release"
     mainFile.addModLoader("Forge")
     mainFile.addGameVersion(minecraft_version)
-    mainFile.addJavaVersion("Java 21")
-    mainFile.changelog = "https://github.com/Tslat/TslatEffectsLib/commits/1.20.6"
-    mainFile.displayName = "${project.mod_name} Forge ${project.minecraft_version}-${project.version}"
+    mainFile.addJavaVersion("Java ${java_version}")
+    mainFile.changelog = "${changelog_url}"
+    mainFile.displayName = base.archivesName.get()
 
     //https://github.com/Darkhax/CurseForgeGradle#available-properties
 }
@@ -110,6 +87,6 @@ modrinth {
     versionNumber = project.version
     versionType = "release"
     uploadFile = jar
-    gameVersions = ["${project.minecraft_version}"]
+    gameVersions = ["${minecraft_version}"]
     loaders = ["forge"]
 }

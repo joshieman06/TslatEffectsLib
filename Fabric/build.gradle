@@ -1,5 +1,8 @@
 plugins {
-    id 'fabric-loom' version '1.6.+'
+    id 'ml-platform-config'
+    id 'fabric-loom' version '1.6-SNAPSHOT'
+    id 'net.darkhax.curseforgegradle' version '1.1.15'
+    id "com.modrinth.minotaur" version "2.+"
 }
 
 dependencies {
@@ -8,43 +11,41 @@ dependencies {
         officialMojangMappings()
         parchment("org.parchmentmc.data:parchment-${mappings_mc_version}:${parchment_version}@zip")
     }
-    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+	
+    modCompileOnly "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modCompileOnly "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    modLocalRuntime "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modLocalRuntime "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 }
 
 loom {
-    accessWidenerPath = project(":Common").file("src/main/resources/tslateffectslib.accesswidener")
+    def accessWidenerFile = project(":common").file("src/main/resources/${mod_id}.accesswidener")
+	
+    if (accessWidenerFile.exists())
+        accessWidenerPath.set(accessWidenerFile)
 
+    mixin {
+        defaultRefmapName.set("${mod_id}.refmap.json")
+    }
+	
     runs {
         client {
             client()
             setConfigName("Fabric Client")
             ideConfigGenerated(true)
-            runDir("run")
+            runDir("runs/client")
         }
+		
         server {
             server()
             setConfigName("Fabric Server")
             ideConfigGenerated(true)
-            runDir("run")
-        }
-    }
-
-    mixin {
-        defaultRefmapName.convention("${mod_id}.refmap.json")
-    }
-}
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId = archivesBaseName
-            from components.java
+            runDir("runs/server")
         }
     }
 }
 
-task publishToCurseForge(type:  net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+task publishToCurseForge(type: net.darkhax.curseforgegradle.TaskPublishCurseForge) {
     group = "publishing"
     apiToken = System.getenv("CURSEFORGE_TOKEN") ?: "Invalid/No API Token Found"
 
@@ -52,9 +53,9 @@ task publishToCurseForge(type:  net.darkhax.curseforgegradle.TaskPublishCurseFor
     mainFile.releaseType = "release"
     mainFile.addModLoader("Fabric")
     mainFile.addGameVersion(minecraft_version)
-    mainFile.addJavaVersion("Java 21")
-    mainFile.changelog = "https://github.com/Tslat/TslatEffectsLib/commits/1.20.6"
-    mainFile.displayName = "${project.mod_name} Fabric ${project.minecraft_version}-${project.version}"
+    mainFile.addJavaVersion("Java ${java_version}")
+    mainFile.changelog = "${changelog_url}"
+    mainFile.displayName = base.archivesName.get()
 
     //https://github.com/Darkhax/CurseForgeGradle#available-properties
 }
@@ -65,6 +66,6 @@ modrinth {
     versionNumber = project.version
     versionType = "release"
     uploadFile = remapJar
-    gameVersions = ["${project.minecraft_version}"]
+    gameVersions = ["${minecraft_version}"]
     loaders = ["fabric"]
 }

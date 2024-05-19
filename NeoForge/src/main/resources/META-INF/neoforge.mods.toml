@@ -1,17 +1,17 @@
 modLoader="javafml"
 loaderVersion="${neoforge_loader_version_range}"
-license="MIT"
+license="${license}"
 issueTrackerURL="https://github.com/Tslat/TslatEffectsLib/issues"
 
 [[mods]]
     modId="${mod_id}"
-    version="${mod_version}"
+    version="${version}"
     displayName="Tslat Effects Lib (TEL)"
     logoFile="logo.png"
-    authors="Tslat"
+    authors="${authors}"
     displayTest="IGNORE_SERVER_VERSION"
     description='''
-A library mod for better mob effects
+${description}
 '''
 
 [[mixins]]
