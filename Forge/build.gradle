@@ -7,6 +7,8 @@ plugins {
     id "com.modrinth.minotaur" version "2.+"
 }
 
+jarJar.enable()
+
 def accessTransformersFile = file('src/main/resources/META-INF/accesstransformer.cfg')
 
 if (accessTransformersFile.exists())
@@ -49,11 +51,11 @@ mixin {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
     annotationProcessor "org.spongepowered:mixin:${mixin_processor_version}:processor"
-    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:0.3.5"))
-    runtimeOnly(annotationProcessor("io.github.llamalad7:mixinextras-forge:0.3.5"))
+    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}"))
+    runtimeOnly(annotationProcessor("io.github.llamalad7:mixinextras-forge:${mixinextras_version}"))
     implementation('net.sf.jopt-simple:jopt-simple:5.0.4') { version { strictly '5.0.4' } }
 
-    jarJar(group: 'io.github.llamalad7', name: 'mixinextras-common', version: "[0.3.5,)")
+    jarJar(group: 'io.github.llamalad7', name: 'mixinextras-forge', version: "[${mixinextras_version},)")
 }
 
 sourceSets.each {
