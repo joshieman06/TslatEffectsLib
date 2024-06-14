@@ -3,7 +3,6 @@ package net.tslat.effectslib.mixin.common;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectIntPair;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.nbt.CompoundTag;
@@ -15,14 +14,8 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.tslat.effectslib.api.ExtendedEnchantment;
 import net.tslat.effectslib.api.ExtendedMobEffect;
-import net.tslat.effectslib.api.util.EnchantmentUtil;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -30,9 +23,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -77,25 +68,6 @@ public abstract class LivingEntityMixin {
 					attackerCallbacks.add(dmg -> extendedMobEffect.afterOutgoingAttack(attacker, victim, instance, damageSource, dmg));
 				}
 			}
-
-			if (!bypassesEnchants) {
-				Map<Enchantment, EnchantmentUtil.EntityEnchantmentData> attackerEnchants = EnchantmentUtil.collectAllEnchantments(attacker, true);
-
-				for (Map.Entry<Enchantment, EnchantmentUtil.EntityEnchantmentData> entry : attackerEnchants.entrySet()) {
-					final EnchantmentUtil.EntityEnchantmentData data = entry.getValue();
-					final ExtendedEnchantment enchant = (ExtendedEnchantment)data.getEnchantment();
-					final int totalLevel = data.getTotalEnchantmentLevel();
-					final int enchantedStacks = data.getEnchantedStacks().size();
-
-					for (int i = 0; i < enchantedStacks; i++) {
-						final ObjectIntPair<ItemStack> stack = data.getEnchantedStacks().get(i);
-						damage = enchant.modifyOutgoingAttackDamage(attacker, victim, damageSource, damage, stack.first(), stack.valueInt(), totalLevel);
-						final boolean isLastStack = i == enchantedStacks - 1;
-
-						attackerCallbacks.add(dmg -> enchant.afterOutgoingAttack(attacker, victim, damageSource, dmg, stack.first(), stack.valueInt(), totalLevel, isLastStack));
-					}
-				}
-			}
 		}
 
 		for (MobEffectInstance instance : victim.getActiveEffects()) {
@@ -103,25 +75,6 @@ public abstract class LivingEntityMixin {
 				damage = extendedMobEffect.modifyIncomingAttackDamage(victim, instance, damageSource, damage);
 
 				victimCallbacks.add(dmg -> extendedMobEffect.afterIncomingAttack(victim, instance, damageSource, dmg));
-			}
-		}
-
-		if (!bypassesEnchants) {
-			Map<Enchantment, EnchantmentUtil.EntityEnchantmentData> victimEnchants = EnchantmentUtil.collectAllEnchantments(victim, true);
-
-			for (Map.Entry<Enchantment, EnchantmentUtil.EntityEnchantmentData> entry : victimEnchants.entrySet()) {
-				final EnchantmentUtil.EntityEnchantmentData data = entry.getValue();
-				final ExtendedEnchantment enchant = (ExtendedEnchantment)data.getEnchantment();
-				final int totalLevel = data.getTotalEnchantmentLevel();
-				final int enchantedStacks = data.getEnchantedStacks().size();
-
-				for (int i = 0; i < enchantedStacks; i++) {
-					final ObjectIntPair<ItemStack> stack = data.getEnchantedStacks().get(i);
-					damage = enchant.modifyIncomingAttackDamage(victim, damageSource, damage, stack.first(), stack.valueInt(), totalLevel);
-					final boolean isLastStack = i == enchantedStacks - 1;
-
-					victimCallbacks.add(dmg -> enchant.afterIncomingAttack(victim, damageSource, dmg, stack.first(), stack.valueInt(), totalLevel, isLastStack));
-				}
 			}
 		}
 
@@ -342,50 +295,6 @@ public abstract class LivingEntityMixin {
 		}
 
 		return continueVanilla;
-	}
-
-	@Inject(
-			method = "collectEquipmentChanges",
-			at = @At(
-					value = "INVOKE",
-					target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
-			),
-			locals = LocalCapture.CAPTURE_FAILSOFT
-	)
-	private void tel$onEquipmentChange(CallbackInfoReturnable<Map<EquipmentSlot, ItemStack>> callback, Map<EquipmentSlot, ItemStack> changeMap, EquipmentSlot[] slots, int slotsSize, int slotIndex, EquipmentSlot slot, ItemStack oldStack, ItemStack newStack) {
-		tel$handleEquipmentChange((LivingEntity)(Object)this, oldStack, newStack, slot);
-	}
-
-	@Unique
-	private void tel$handleEquipmentChange(LivingEntity entity, ItemStack from, ItemStack to, EquipmentSlot slot) {
-		if (from == to)
-			return;
-
-		for (ObjectIntPair<Holder<ExtendedEnchantment>> instance : EnchantmentUtil.<ExtendedEnchantment>getStackEnchantmentsForUse(entity, from, slot, true)) {
-			instance.key().value().onUnequip(entity, slot, from, to, instance.valueInt());
-		}
-
-		for (ObjectIntPair<Holder<ExtendedEnchantment>> instance : EnchantmentUtil.<ExtendedEnchantment>getStackEnchantmentsForUse(entity, to, slot, true)) {
-			instance.key().value().onEquip(entity, slot, from, to, instance.valueInt());
-		}
-	}
-
-	@Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;aiStep()V"))
-	public void tel$onEntityTick(CallbackInfo ci) {
-		final LivingEntity self = (LivingEntity)(Object)this;
-
-		if (!(self instanceof Player)) {
-			self.getArmorSlots().forEach(stack -> tel$tickEnchantmentsForEquipment(self, stack));
-			tel$tickEnchantmentsForEquipment(self, self.getMainHandItem());
-			tel$tickEnchantmentsForEquipment(self, self.getOffhandItem());
-		}
-	}
-
-	@Unique
-	private static void tel$tickEnchantmentsForEquipment(LivingEntity entity, ItemStack stack) {
-		for (ObjectIntPair<Holder<ExtendedEnchantment>> enchant : EnchantmentUtil.<ExtendedEnchantment>getStackEnchantmentsForUse(entity, stack, null, true)) {
-			enchant.key().value().tick(entity, stack);
-		}
 	}
 
 	@WrapOperation(method = "addAdditionalSaveData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;save()Lnet/minecraft/nbt/Tag;"))

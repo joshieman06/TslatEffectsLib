@@ -1,6 +1,7 @@
 package net.tslat.effectslib.mixin.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.GameRenderer;
@@ -27,17 +28,17 @@ public class GameRendererMixin {
 					target = "Lnet/minecraft/client/Options;screenEffectScale()Lnet/minecraft/client/OptionInstance;"
 			)
 	)
-	private void tel$renderEffectOverlays(float partialTicks, long nanoTime, boolean renderLevel, CallbackInfo callback) {
-		tel$doExtendedEffectRenders(this.minecraft.player, partialTicks);
+	private void tel$renderEffectOverlays(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo callback) {
+		tel$doExtendedEffectRenders(this.minecraft.player, deltaTracker);
 	}
 
 	@Unique
-	private void tel$doExtendedEffectRenders(LocalPlayer player, float partialTicks) {
+	private void tel$doExtendedEffectRenders(LocalPlayer player, DeltaTracker deltaTracker) {
 		PoseStack poseStack = new PoseStack();
 
 		for (MobEffectInstance instance : player.getActiveEffects()) {
 			if (instance.getEffect().value() instanceof ExtendedMobEffect extendedMobEffect && extendedMobEffect.getOverlayRenderer() != null)
-				extendedMobEffect.getOverlayRenderer().render(poseStack, partialTicks, instance);
+				extendedMobEffect.getOverlayRenderer().render(poseStack, deltaTracker, instance);
 		}
 	}
 }

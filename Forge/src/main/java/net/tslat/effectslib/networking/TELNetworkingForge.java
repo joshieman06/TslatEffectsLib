@@ -20,7 +20,7 @@ import net.tslat.effectslib.TELConstants;
 import net.tslat.effectslib.networking.packet.MultiloaderPacket;
 
 public class TELNetworkingForge implements TELNetworking {
-	public static PayloadProtocol<RegistryFriendlyByteBuf, CustomPacketPayload> NETWORK_CHANNEL_BUILDER = ChannelBuilder.named(new ResourceLocation(TELConstants.MOD_ID, "tel_packets")).networkProtocolVersion(1).payloadChannel().play();
+	public static PayloadProtocol<RegistryFriendlyByteBuf, CustomPacketPayload> NETWORK_CHANNEL_BUILDER = ChannelBuilder.named(ResourceLocation.fromNamespaceAndPath(TELConstants.MOD_ID, "tel_packets")).networkProtocolVersion(1).payloadChannel().play();
 	public static Channel<CustomPacketPayload> CHANNEL;
 
 	public TELNetworkingForge() {}

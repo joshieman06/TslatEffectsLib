@@ -9,13 +9,7 @@
     "common.LivingEntityMixin",
     "common.MobEffectInstanceMixin",
     "common.PlayerMixin",
-    "common.EnchantmentHelperMixin",
-    "common.AnvilMenuMixin",
-    "common.EnchantCommandMixin",
-    "common.EnchantRandomlyFunctionMixin",
-    "common.GrindstoneMenuMixin",
     "common.ItemStackMixin",
-    "common.EnchantmentMenuMixin",
     "common.MobEffectInstanceAccessor"
   ],
   "client": [
