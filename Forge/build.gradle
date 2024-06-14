@@ -68,6 +68,18 @@ processResources {
 	exclude '**/*.accesswidener'
 }
 
+tasks.named("jar").configure {
+    archiveClassifier = "slim"
+}
+
+tasks.named("jarJar").configure {
+    archiveClassifier = ""
+}
+
+tasks.named("assemble").configure {
+    dependsOn("jarJar")
+}
+
 task publishToCurseForge(type: net.darkhax.curseforgegradle.TaskPublishCurseForge) {
     group = "publishing"
     apiToken = System.getenv("CURSEFORGE_TOKEN") ?: "Invalid/No API Token Found"
