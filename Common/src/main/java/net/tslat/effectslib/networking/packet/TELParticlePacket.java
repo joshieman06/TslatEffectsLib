@@ -21,7 +21,7 @@ import java.util.Collection;
 import java.util.function.Consumer;
 
 public record TELParticlePacket(Collection<ParticleBuilder> particles) implements MultiloaderPacket {
-    public static final CustomPacketPayload.Type<TELParticlePacket> TYPE = new Type<>(new ResourceLocation(TELConstants.MOD_ID, "tel_particle"));
+    public static final CustomPacketPayload.Type<TELParticlePacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TELConstants.MOD_ID, "tel_particle"));
     public static final StreamCodec<RegistryFriendlyByteBuf, TELParticlePacket> CODEC = StreamCodec.composite(
             ByteBufCodecs.collection(ObjectArrayList::new, ParticleBuilder.CODEC),
             TELParticlePacket::particles,

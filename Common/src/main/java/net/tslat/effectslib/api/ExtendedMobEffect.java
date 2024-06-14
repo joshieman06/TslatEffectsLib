@@ -163,11 +163,11 @@ public class ExtendedMobEffect extends MobEffect {
 
 			if (attributeInstance != null) {
 				AttributeTemplate template = entry.getValue();
-				AttributeModifier modifier = entry.getValue().create(getDescriptionId(), amplifier);
+				AttributeModifier modifier = entry.getValue().create(amplifier);
 				double dynamicAmount = getAttributeModifierValue(entity, attribute, modifier.amount(), amplifier);
 
 				if (dynamicAmount != modifier.amount())
-					modifier = new AttributeModifier(template.id(), modifier.name(), dynamicAmount, modifier.operation());
+					modifier = new AttributeModifier(template.id(), dynamicAmount, modifier.operation());
 
 				attributeInstance.removeModifier(template.id());
 				attributeInstance.addPermanentModifier(modifier);

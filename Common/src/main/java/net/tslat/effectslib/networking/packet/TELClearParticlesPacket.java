@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.function.Consumer;
 
 public record TELClearParticlesPacket() implements MultiloaderPacket {
-    public static final CustomPacketPayload.Type<TELClearParticlesPacket> TYPE = new Type<>(new ResourceLocation(TELConstants.MOD_ID, "tel_clear_particles"));
+    public static final CustomPacketPayload.Type<TELClearParticlesPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TELConstants.MOD_ID, "tel_clear_particles"));
     public static final StreamCodec<FriendlyByteBuf, TELClearParticlesPacket> CODEC = StreamCodec.unit(new TELClearParticlesPacket());
 
     @Override
