@@ -46,6 +46,7 @@ public final class ParticleBuilder {
     private Consumer<Object> particleConsumer = null;
 
     private boolean isSimple = true;
+    private boolean isFullDetails = false;
 
     private int particlesPerPosition = 1;
     private int particleCount = 1;
@@ -83,6 +84,7 @@ public final class ParticleBuilder {
         newBuilder.transitions = builder.transitions;
         newBuilder.particleConsumer = builder.particleConsumer;
         newBuilder.isSimple = builder.isSimple;
+        newBuilder.isFullDetails = builder.isFullDetails;
         newBuilder.particlesPerPosition = builder.particlesPerPosition;
         newBuilder.particleCount = builder.particleCount;
         newBuilder.cutoffDistance = builder.cutoffDistance;
@@ -230,6 +232,7 @@ public final class ParticleBuilder {
 
         this.transitions.add(transition);
         this.isSimple = false;
+        this.isFullDetails = true;
 
         return this;
     }
@@ -284,6 +287,7 @@ public final class ParticleBuilder {
     public ParticleBuilder power(Vec3 power) {
         this.power = power;
         this.isSimple = false;
+        this.isFullDetails = true;
 
         return this;
     }
@@ -313,6 +317,7 @@ public final class ParticleBuilder {
     public ParticleBuilder cutoffDistance(double distance) {
         this.cutoffDistance = distance;
         this.isSimple = false;
+        this.isFullDetails = true;
 
         return this;
     }
@@ -325,6 +330,7 @@ public final class ParticleBuilder {
     public ParticleBuilder isAmbient() {
         this.ambient = true;
         this.isSimple = false;
+        this.isFullDetails = true;
 
         return this;
     }
@@ -385,6 +391,7 @@ public final class ParticleBuilder {
     public ParticleBuilder velocityDrag(float inertia) {
         this.drag = inertia;
         this.isSimple = false;
+        this.isFullDetails = true;
 
         return this;
     }
@@ -544,6 +551,28 @@ public final class ParticleBuilder {
         if (this.isSimple)
             return;
 
+        buffer.writeVarInt(this.lifespan);
+        buffer.writeFloat(this.gravity);
+        buffer.writeFloat(this.scale);
+        buffer.writeBoolean(this.force);
+        buffer.writeBoolean(this.velocity != null);
+
+        if (this.velocity != null) {
+            buffer.writeDouble(this.velocity.x);
+            buffer.writeDouble(this.velocity.y);
+            buffer.writeDouble(this.velocity.z);
+        }
+
+        buffer.writeBoolean(this.colourOverride != null);
+
+        if (this.colourOverride != null)
+            buffer.writeVarInt(this.colourOverride);
+
+        buffer.writeBoolean(this.isFullDetails);
+
+        if (!this.isFullDetails)
+            return;
+
         buffer.writeBoolean(this.transitions != null);
 
         if (this.transitions != null) {
@@ -554,30 +583,14 @@ public final class ParticleBuilder {
         }
 
         buffer.writeVarInt(this.particlesPerPosition);
-        buffer.writeBoolean(this.velocity != null);
-
-        if (this.velocity != null) {
-            buffer.writeDouble(this.velocity.x);
-            buffer.writeDouble(this.velocity.y);
-            buffer.writeDouble(this.velocity.z);
-        }
 
         buffer.writeDouble(this.power.x);
         buffer.writeDouble(this.power.y);
         buffer.writeDouble(this.power.z);
 
         buffer.writeDouble(this.cutoffDistance);
-        buffer.writeBoolean(this.force);
         buffer.writeBoolean(this.ambient);
-        buffer.writeBoolean(this.colourOverride != null);
-
-        if (this.colourOverride != null)
-            buffer.writeVarInt(this.colourOverride);
-
-        buffer.writeVarInt(this.lifespan);
-        buffer.writeFloat(this.gravity);
         buffer.writeFloat(this.drag);
-        buffer.writeFloat(this.scale);
     }
 
     public static ParticleBuilder fromNetwork(final RegistryFriendlyByteBuf buffer) {
@@ -596,24 +609,29 @@ public final class ParticleBuilder {
         if (buffer.readBoolean())
             return builder;
 
-        if (buffer.readBoolean())
-            builder.transitions = buffer.readCollection(ObjectArrayList::new, buf -> buf.readEnum(ParticleTransitionWorker.TransitionType.class).constructFromNetwork(buf));
-
         builder.isSimple = false;
-        builder.particlesPerPosition = buffer.readVarInt();
-        builder.velocity = buffer.readBoolean() ? new Vec3(buffer.readDouble(), buffer.readDouble(), buffer.readDouble()) : null;
-        builder.power = new Vec3(buffer.readDouble(), buffer.readDouble(), buffer.readDouble());
-        builder.cutoffDistance = buffer.readDouble();
+        builder.lifespan = buffer.readVarInt();
+        builder.gravity = buffer.readFloat();
+        builder.scale = buffer.readFloat();
         builder.force = buffer.readBoolean();
-        builder.ambient = buffer.readBoolean();
+        builder.velocity = buffer.readBoolean() ? new Vec3(buffer.readDouble(), buffer.readDouble(), buffer.readDouble()) : null;
 
         if (buffer.readBoolean())
             builder.colourOverride = buffer.readVarInt();
 
-        builder.lifespan = buffer.readVarInt();
-        builder.gravity = buffer.readFloat();
+        if (!buffer.readBoolean())
+            return builder;
+
+        builder.isFullDetails = true;
+
+        if (buffer.readBoolean())
+            builder.transitions = buffer.readCollection(ObjectArrayList::new, buf -> buf.readEnum(ParticleTransitionWorker.TransitionType.class).constructFromNetwork(buf));
+
+        builder.particlesPerPosition = buffer.readVarInt();
+        builder.power = new Vec3(buffer.readDouble(), buffer.readDouble(), buffer.readDouble());
+        builder.cutoffDistance = buffer.readDouble();
+        builder.ambient = buffer.readBoolean();
         builder.drag = buffer.readFloat();
-        builder.scale = buffer.readFloat();
 
         return builder;
     }
