@@ -34,8 +34,8 @@ public class ExtendedMobEffect extends MobEffect {
 	public ExtendedMobEffect(MobEffectCategory category, int color) {
 		super(category, color);
 	}
-	public ExtendedMobEffect(MobEffectCategory category, int color) {
-		super(category, color);
+	public ExtendedMobEffect(MobEffectCategory category, int color, ParticleOptions particle) {
+		super(category, color, particle)
 	}
 
 	/**
